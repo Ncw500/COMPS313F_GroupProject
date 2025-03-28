@@ -5,9 +5,8 @@ import { Stack } from 'expo-router'
 const MapsLayout = () => {
   return (
     <Stack screenOptions={{
-      title: "Home",
+      headerShown: false,
     }}>
-        
     </Stack>
   )
 }
