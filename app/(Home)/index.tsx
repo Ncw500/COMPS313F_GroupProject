@@ -30,8 +30,6 @@ export default function RoutesPage() {
         }
     }
 
-    
-
     const renderItem = ({ item }: { item: Route }) => {
         return <RouteItem route={item} />
     }
