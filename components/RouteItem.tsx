@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { Route } from '@/types/Interfaces'
+import { Link } from 'expo-router'
 
 type RouteItemProps = {
   route: Route
@@ -8,12 +9,14 @@ type RouteItemProps = {
 
 const routeItem = ({ route }: RouteItemProps) => {
   return (
-    <TouchableOpacity activeOpacity={0.7}>
-      <View style={styles.container}>
-        <Text style={styles.text}>{route.route}</Text>
-        <Text style={styles.text}>{route.dest_tc}</Text>
-      </View>
-    </TouchableOpacity>
+    <Link href={`/${(route.route.toString() + "_" + route.bound.toString() + "_" + route.service_type.toString())}`} asChild>
+      <TouchableOpacity activeOpacity={0.7}>
+        <View style={styles.container}>
+          <Text style={styles.text}>{route.route}</Text>
+          <Text style={styles.text}>{route.dest_en}</Text>
+        </View>
+      </TouchableOpacity>
+    </Link>
   )
 }
 
