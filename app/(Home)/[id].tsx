@@ -4,7 +4,6 @@ import { useLocalSearchParams } from 'expo-router'
 import { Route } from '@/types/Interfaces'
 
 
-
 const RouteDetailPage = () => {
 
     const { id } = useLocalSearchParams();
@@ -31,9 +30,22 @@ const RouteDetailPage = () => {
         }
 
         fetchRouteDetail();
+        
     }, [id]);
 
-
+    // const fetchStopETA = async () => {
+    //     setLoading(true);
+    //     try {
+    //         const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${route?.route}/${route?.service_type}`);
+    //         const results = await response.json();
+    //         console.log(results);
+    //     } catch (error) {
+    //         //   console.error(error);
+    //     } finally {
+    //         setLoading(false);
+    //         setRefreshing(false);
+    //     }
+    // }
 
     if (loading) {
         return (

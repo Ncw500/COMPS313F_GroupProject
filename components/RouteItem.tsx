@@ -12,13 +12,18 @@ const routeItem = ({ route }: RouteItemProps) => {
     <Link href={`/${(route.route.toString() + "_" + route.bound.toString() + "_" + route.service_type.toString())}`} asChild>
       <TouchableOpacity activeOpacity={0.7}>
         <View style={styles.container}>
-          <Text style={styles.text}>{route.route}</Text>
-          <Text style={styles.text}>{route.dest_en}</Text>
+          <Text style={styles.routeText}>{route.route}</Text>
+          <View style={styles.destView}>
+            <Text style={styles.toText}>To </Text>
+            <Text style={styles.destText}>{route.dest_en}</Text>
+          </View>
+          <Text style={styles.boundText}>{route.bound}</Text>
         </View>
       </TouchableOpacity>
-    </Link>
+    </Link >
   )
 }
+
 
 export default routeItem
 
@@ -26,13 +31,44 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#f2d4ac",
-    margin: 10,
-    padding: 10,
-    borderRadius: 5,
+    padding: 15,
+    paddingBottom: 20,
+    borderWidth: 1,
+    borderColor: "#bdbbb5",
   },
-  text: {
-    fontSize: 16,
+  routeText: {
+    fontSize: 18,
     color: "#000",
+    fontWeight: "bold",
+    width: "15%",
+    marginRight: 10,
+    textAlignVertical: "center"
   },
+  destView: {
+    flexDirection: "row", 
+    alignItems: "center",
+    flex: 1,
+  },
+  toText: {
+    fontSize: 14,
+    color: "#000",
+    fontStyle: "italic",
+    fontWeight: "bold",
+    width: 25,
+  },
+  destText: {
+    fontSize: 18,
+    color: "#000",
+    fontWeight: "bold",
+    width: "100%",
+  }, 
+  boundText: {
+    fontSize: 18,
+    color: "#000",
+    fontWeight: "bold",
+    width: "20%",
+    textAlign: "right",
+    textAlignVertical: "center",
+    marginLeft: 20,
+  }
 })
