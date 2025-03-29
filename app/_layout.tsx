@@ -12,5 +12,13 @@ export default function RootLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
         }}
       />
-    </Tabs>)
+      <Tabs.Screen
+        name="Search/index"
+        options={{
+          title: "Search",
+          tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
+        }}
+      />
+    </Tabs>
+  );
 }

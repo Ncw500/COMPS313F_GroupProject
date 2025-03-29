@@ -1,12 +1,14 @@
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+
+import { FlatList, RefreshControl, StyleSheet, Text, View} from "react-native";
 import RouteItem from "@/components/RouteItem";
 import { Route } from "@/types/Interfaces";
 import { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 
 export default function RoutesPage() {
 
     const [routes, setRoutes] = useState<Route[]>([]);
-
+    const router = useRouter();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [renderCount, setRenderCount] = useState(20);
@@ -59,33 +61,48 @@ export default function RoutesPage() {
 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={routes.slice(0, renderCount)}
-                renderItem={renderItem}
-                keyExtractor={generateKey}
-                onEndReached={onEndReached}
-                onEndReachedThreshold={0.5}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                    />
-                }
-            />
+          
+          <FlatList
+            data={routes.slice(0, renderCount)}
+            renderItem={renderItem}
+            keyExtractor={generateKey}
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+              />
+            }
+          />
         </View>
-    );
-}
-
-const styles = StyleSheet.create({
-    container: {
+      );
+    }
+    
+    const styles = StyleSheet.create({
+      container: {
         flex: 1,
         justifyContent: "center",
-    },
-    emptyText: {
+      },
+      emptyText: {
         fontSize: 20,
-        fontWeight: "bold",
+        fontWeight: "bold", 
         textAlign: "center",
-    }
-});
+      },
+      // 新增按钮样式
+      searchButton: {
+        margin: 16,
+        backgroundColor: '#007AFF',
+        borderRadius: 8,
+        elevation: 3,
+      },
+      buttonText: {
+        color: 'white',
+        padding: 12,
+        textAlign: 'center',
+        fontWeight: '600',
+        fontSize: 16,
+      }
+    });
 
 
