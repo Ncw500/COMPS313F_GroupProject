@@ -13,22 +13,16 @@ export default function RootLayout() {
         }}
       />
       <Tabs.Screen
-<<<<<<< HEAD
-        name="Search/index"
+        name="(Search)"
         options={{
           title: "Search",
           tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
-        }}
-      />
-    </Tabs>
-  );
-}
-=======
-        name="(Search)"
+        }} />
+        <Tabs.Screen
+        name="Search/index"
         options={{
           title: "Search",
           tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
         }} />
     </Tabs>)
 }
->>>>>>> 8a4704bfa77c2b53bb9d0e815814477ecc35d98a

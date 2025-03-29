@@ -7,13 +7,13 @@ const SearchRouteForm = () => {
 
     const [numericButtonSize, setNumericButtonSize] = useState(0);
 
-    // Define the renderItem function with explicit TypeScript types
+ 
     const renderItem = ({ item, dataType, size }: { item: string; dataType: string; size?: number }) => {
         if (dataType === 'numeric') {
             return (
                 <TouchableOpacity
                     style={{
-                        width: size, // Safe because size is provided for numeric items
+                        width: size, 
                         height: size,
                         justifyContent: 'center',
                         alignItems: 'center',
