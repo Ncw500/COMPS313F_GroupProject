@@ -36,7 +36,7 @@ export default function RoutesPage() {
         return <RouteItem route={item} />
     }
 
-    const generateKey = (item: Route, index: number) => {
+    const generateKey = (item: Route) => {
         var key = (item.route.toString() + "_" + item.bound.toString() + "_" +item.service_type.toString());        
         return key;
     }

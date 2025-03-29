@@ -7,7 +7,7 @@ type RouteItemProps = {
   route: Route
 }
 
-const routeItem = ({ route }: RouteItemProps) => {
+const RouteItem = ({ route }: RouteItemProps) => {
   return (
     <Link href={`/${(route.route.toString() + "_" + route.bound.toString() + "_" + route.service_type.toString())}`} asChild>
       <TouchableOpacity activeOpacity={0.7}>
@@ -25,7 +25,7 @@ const routeItem = ({ route }: RouteItemProps) => {
 }
 
 
-export default routeItem
+export default RouteItem
 
 const styles = StyleSheet.create({
   container: {
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 18,
-    color: "#000",
+    color: '#007AFF',
     fontWeight: "bold",
     width: "15%",
     marginRight: 10,
@@ -51,20 +51,20 @@ const styles = StyleSheet.create({
   },
   toText: {
     fontSize: 14,
-    color: "#000",
+    color: '#666',
     fontStyle: "italic",
     fontWeight: "bold",
     width: 25,
   },
   destText: {
     fontSize: 18,
-    color: "#000",
+    color: '#666',
     fontWeight: "bold",
     width: "100%",
   }, 
   boundText: {
     fontSize: 18,
-    color: "#000",
+    color: '#666',
     fontWeight: "bold",
     width: "20%",
     textAlign: "right",

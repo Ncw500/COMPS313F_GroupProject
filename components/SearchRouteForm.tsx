@@ -2,22 +2,26 @@ import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import React, { useState } from 'react';
 
 const SearchRouteForm = () => {
-    const numericData = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'remove'];
+    const numericData = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'cr', '0', 'rm'];
     const alphabetData = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
     const [numericButtonSize, setNumericButtonSize] = useState(0);
 
- 
+
     const renderItem = ({ item, dataType, size }: { item: string; dataType: string; size?: number }) => {
         if (dataType === 'numeric') {
             return (
                 <TouchableOpacity
                     style={{
-                        width: size, 
+                        width: size,
                         height: size,
                         justifyContent: 'center',
                         alignItems: 'center',
                         borderWidth: 1,
+                    }}
+                    onPress={() => {
+                        // Handle numeric button press
+                        console.log(`Numeric button pressed: ${item}`);
                     }}
                 >
                     <Text style={{ fontSize: 20 }}>{item}</Text>
@@ -25,7 +29,13 @@ const SearchRouteForm = () => {
             );
         } else {
             return (
-                <TouchableOpacity style={styles.alphabetGridItem}>
+                <TouchableOpacity
+                    style={styles.alphabetGridItem}
+                    onPress={() => {
+                        // Handle alphabet button press
+                        console.log(`Alphabet button pressed: ${item}`);
+                    }}
+                >
                     <Text style={{ fontSize: 20 }}>{item}</Text>
                 </TouchableOpacity>
             );

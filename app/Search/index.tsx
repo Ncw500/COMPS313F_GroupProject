@@ -92,7 +92,7 @@ const SearchPage = () => {
                 styles.routeItem,
                 pressed && styles.routeItemPressed
               ]}
-              onPress={() => router.push(`/(Maps)/${item.route}_${item.bound}_${item.service_type}`)}
+              onPress={() => router.push(`/(Home)/${item.route}_${item.bound}_${item.service_type}`)}
             >
               <Text style={styles.routeNumber}>{item.route}</Text>
               <Text style={styles.routeText}>
