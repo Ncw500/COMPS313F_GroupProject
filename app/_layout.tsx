@@ -1,10 +1,34 @@
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome5 } from '@expo/vector-icons';
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
+import { StatusBar, useColorScheme, Platform } from "react-native";
+import { Colors } from "@/styles/theme";
 
-export default function RootLayout() {
+// Tabs wrapper with theme support
+function TabsWrapper() {
+  const { isDark } = useTheme();
+  const colors = isDark ? Colors.dark : Colors.light;
+  
+  useEffect(() => {
+    // Update status bar style
+    StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor(colors.background);
+    }
+  }, [isDark]);
+
   return (
-    <Tabs screenOptions={{ headerShown: false }}>
+    <Tabs screenOptions={{ 
+      headerShown: false,
+      tabBarActiveTintColor: colors.primary,
+      tabBarInactiveTintColor: colors.tabBarInactive,
+      tabBarStyle: {
+        borderTopColor: colors.border,
+        backgroundColor: colors.tabBar,
+      },
+    }}>
       <Tabs.Screen
         name="(Home)"
         options={{
@@ -13,16 +37,40 @@ export default function RootLayout() {
         }}
       />
       <Tabs.Screen
+        name="(Routes)"
+        options={{
+          title: "All Routes",
+          tabBarIcon: ({ color }) => <FontAwesome5 name="bus" size={20} color={color} />,
+        }}
+      />
+      {/* Hide Search tab but make it accessible */}
+      <Tabs.Screen
         name="(Search)"
         options={{
           title: "Search",
           tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
-        }} />
-        <Tabs.Screen
+        }}
+      />
+      <Tabs.Screen
+        name="Searchs"
+        options={{
+          href: null,
+        }}
+      />
+      {/* <Tabs.Screen
         name="Search/index"
         options={{
-          title: "Search",
-          tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
-        }} />
-    </Tabs>)
+          href: null,
+        }}
+      /> */}
+    </Tabs>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <TabsWrapper />
+    </ThemeProvider>
+  );
 }

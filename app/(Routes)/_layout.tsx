@@ -1,8 +1,7 @@
-import { StyleSheet } from 'react-native'
-import React from 'react'
-import { Stack } from 'expo-router'
+import { Stack } from "expo-router";
+import React from "react";
 
-export default function HomeLayout() {
+export default function RoutesLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
@@ -16,5 +15,3 @@ export default function HomeLayout() {
     </Stack>
   );
 }
-
-const styles = StyleSheet.create({})

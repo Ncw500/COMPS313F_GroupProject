@@ -1,108 +1,74 @@
-
-import { FlatList, RefreshControl, StyleSheet, Text, View} from "react-native";
-import RouteItem from "@/components/RouteItem";
-import { Route } from "@/types/Interfaces";
+import { StyleSheet, Text, View, TouchableOpacity, SafeAreaView, StatusBar } from "react-native";
 import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
+import NearbyStops from "@/components/NearbyStops";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useTheme } from "@/context/ThemeContext";
+import { Colors } from "@/styles/theme";
 
-export default function RoutesPage() {
+export default function HomePage() {
+  const router = useRouter();
+  const { isDark } = useTheme();
+  const colors = isDark ? Colors.dark : Colors.light;
 
-    const [routes, setRoutes] = useState<Route[]>([]);
-    const router = useRouter();
-    const [refreshing, setRefreshing] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [renderCount, setRenderCount] = useState(20);
-
-    useEffect(() => {
-        fetchRoute();
-    }, []);
-
-
-    const fetchRoute = async () => {
-        setLoading(true);
-        try {
-            const response = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/route//');
-            const results = await response.json();
-            setRoutes(results.data);
-        } catch (error) {
-            //   console.error(error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }
-
-    const renderItem = ({ item }: { item: Route }) => {
-        return <RouteItem route={item} />
-    }
-
-    const generateKey = (item: Route) => {
-        var key = (item.route.toString() + "_" + item.bound.toString() + "_" +item.service_type.toString());        
-        return key;
-    }
-
-    const onEndReached = () => {
-        setRenderCount(prevCount => Math.min(prevCount + 20, routes.length));
-    };
-
-    const onRefresh = () => {
-        setRenderCount(20);
-        setRefreshing(true);
-        fetchRoute();
-    }
-
-    if (loading) {
-        return (
-            <View style={styles.container}>
-                <Text style={styles.emptyText}>Loading...</Text>
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={[styles.title, { color: colors.text }]}>Bus App</Text>
+              <Text style={[styles.subtitle, { color: colors.subText }]}>Find your next bus easily</Text>
             </View>
-        );
-    }
-
-    return (
-        <View style={styles.container}>
-          
-          <FlatList
-            data={routes.slice(0, renderCount)}
-            renderItem={renderItem}
-            keyExtractor={generateKey}
-            onEndReached={onEndReached}
-            onEndReachedThreshold={0.5}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-              />
-            }
-          />
+            <ThemeToggle showLabel={true} />
+          </View>
         </View>
-      );
-    }
+        
+        <View style={styles.nearbyContainer}>
+          <Text style={[styles.sectionTitle, { color: colors.text, backgroundColor: isDark ? colors.surface : '#f5f5f5' }]}>
+            Nearby Stops
+          </Text>
+          <NearbyStops />
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
     
-    const styles = StyleSheet.create({
-      container: {
-        flex: 1,
-        justifyContent: "center",
-      },
-      emptyText: {
-        fontSize: 20,
-        fontWeight: "bold", 
-        textAlign: "center",
-      },
-      // 新增按钮样式
-      searchButton: {
-        margin: 16,
-        backgroundColor: '#007AFF',
-        borderRadius: 8,
-        elevation: 3,
-      },
-      buttonText: {
-        color: 'white',
-        padding: 12,
-        textAlign: 'center',
-        fontWeight: '600',
-        fontSize: 16,
-      }
-    });
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    paddingTop: StatusBar.currentHeight || 0
+  },
+  container: {
+    flex: 1,
+  },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    fontSize: 16,
+    marginTop: 4,
+  },
+  nearbyContainer: {
+    flex: 1,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    padding: 16,
+    paddingBottom: 8,
+  }
+});
 
 

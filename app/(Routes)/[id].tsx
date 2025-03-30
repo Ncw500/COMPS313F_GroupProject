@@ -1,8 +1,10 @@
-import { StyleSheet, View } from 'react-native'
+import { StyleSheet, View, StatusBar } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import RouteETAList from '@/components/RouteETAList';
 import MapComponent from '@/components/MapComponent';
 import { useEffect, useRef, useState } from 'react';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/styles/theme';
 
 interface StopLocation {
     stopId: string;
@@ -25,6 +27,8 @@ const RouteDetailPage = () => {
     
     const mapRef = useRef(null);
     const [selectedStop, setSelectedStop] = useState<StopLocation | null>(null);
+    const { isDark } = useTheme();
+    const colors = isDark ? Colors.dark : Colors.light;
     
     // Parse the route ID format (e.g., "1_O_1" to separate components)
     const splitId = (id: string) => {
@@ -60,7 +64,8 @@ const RouteDetailPage = () => {
     }, [stopId, stopLat, stopLng, stopName, stopSeq]);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
             <View style={styles.mapViewContainer}>
                 <MapComponent 
                     ref={mapRef}
@@ -93,4 +98,4 @@ const styles = StyleSheet.create({
     routeETAListContainer: {
         height: "50%",
     }
-})
+});

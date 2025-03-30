@@ -1,0 +1,603 @@
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  TouchableOpacity,
+  RefreshControl,
+  ScrollView,
+} from 'react-native';
+import * as Location from 'expo-location';
+import { StopInfo, RouteStop, Route } from '@/types/Interfaces';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { calculateDistance, formatDistance, fetchAllStops, fetchAllRouteStops, fetchAllRoutes } from '@/utils/api';
+import { useTheme } from '@/context/ThemeContext';
+import { Colors } from '@/styles/theme';
+
+interface NearbyStop extends StopInfo {
+  distance: number;
+  routes?: Array<{
+    routeId: string;
+    bound: string;
+    serviceType: string;
+    destination: string;
+  }>;
+}
+
+const RADIUS_KM = 0.5; // 500m radius to search for stops
+
+const NearbyStops = () => {
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [nearbyStops, setNearbyStops] = useState<NearbyStop[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoadingRoutes, setIsLoadingRoutes] = useState(false);
+  const [routeLoadingError, setRouteLoadingError] = useState<string | null>(null);
+  const loadingAttempts = useRef(0);
+  const router = useRouter();
+  const { isDark } = useTheme();
+  const colors = isDark ? Colors.dark : Colors.light;
+
+  // Function to load nearby bus stops with route information - with progressive loading
+  const loadNearbyStops = async (forceRefresh = false) => {
+    try {
+      if (forceRefresh) {
+        setRefreshing(true);
+      }
+      
+      setLoading(true);
+      setApiError(null);
+      setRouteLoadingError(null);
+      loadingAttempts.current = 0;
+
+      // 1. Get user's location
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Location permission denied. Please enable location services to find nearby stops.');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const userLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setLocation(userLocation);
+
+      // 2. Fetch all bus stops from API
+      let allStops: StopInfo[] = [];
+      try {
+        allStops = await fetchAllStops();
+      } catch (error) {
+        console.error('Error fetching stops:', error);
+        setApiError('Could not load bus stops. Please try again later.');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // 3. Calculate distances and filter nearby stops
+      const stopsWithDistance = allStops
+        .map((stop) => ({
+          ...stop,
+          distance: calculateDistance(
+            userLocation.coords.latitude,
+            userLocation.coords.longitude,
+            parseFloat(stop.lat),
+            parseFloat(stop.long)
+          ),
+        }))
+        .filter((stop) => stop.distance <= RADIUS_KM * 1000)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 30);
+      
+      // Set basic stop data first without routes - SHOW STOPS IMMEDIATELY
+      setNearbyStops(stopsWithDistance);
+      setLoading(false);
+      
+      // If no stops found, we can return early
+      if (stopsWithDistance.length === 0) {
+        setRefreshing(false);
+        return;
+      }
+      
+      // 4. Now load route data in background with retry mechanism
+      loadRouteData(stopsWithDistance);
+      
+    } catch (error) {
+      console.error('Error loading nearby stops:', error);
+      setApiError('An error occurred while loading data. Please try again later.');
+      setLoading(false);
+      setIsLoadingRoutes(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Separate function to load route data with retry logic
+  const loadRouteData = async (stopsWithDistance: NearbyStop[]) => {
+    setIsLoadingRoutes(true);
+    
+    try {
+      // Load route data in a separate try/catch to handle failure gracefully
+      const allRoutes = await fetchAllRoutes();
+      
+      try {
+        // Try to get route-stop data (this is the one giving 403 errors)
+        const allRouteStops = await fetchAllRouteStops();
+        
+        // Find which routes pass through each nearby stop
+        const nearbyWithRoutes = await Promise.all(
+          stopsWithDistance.map(async (stop) => {
+            // Find all route-stop entries for this stop
+            const routesForStop = allRouteStops.filter(
+              routeStop => routeStop.stop === stop.stop
+            );
+
+            // Match with route details to get destinations
+            const routeDetails = routesForStop.map(routeStop => {
+              const matchingRoute = allRoutes.find(
+                route => 
+                  route.route === routeStop.route && 
+                  route.bound === routeStop.bound && 
+                  route.service_type === routeStop.service_type
+              );
+
+              return {
+                routeId: routeStop.route,
+                bound: routeStop.bound,
+                serviceType: routeStop.service_type,
+                destination: matchingRoute ? matchingRoute.dest_en : 'Unknown'
+              };
+            });
+
+            // Sort routes
+            routeDetails.sort((a, b) => {
+              const numA = parseInt(a.routeId);
+              const numB = parseInt(b.routeId);
+              
+              if (!isNaN(numA) && !isNaN(numB)) {
+                return numA - numB;
+              }
+              return a.routeId.localeCompare(b.routeId);
+            });
+
+            return {
+              ...stop,
+              routes: routeDetails
+            };
+          })
+        );
+
+        setNearbyStops(nearbyWithRoutes);
+        setRouteLoadingError(null);
+        
+      } catch (routeStopError) {
+        console.error('Error loading route-stops:', routeStopError);
+        
+        if (routeStopError instanceof Error && routeStopError.message.includes('rate limit') && loadingAttempts.current < 2) {
+          loadingAttempts.current++;
+          setRouteLoadingError(`API rate limit reached. Retrying in 10 seconds... (Attempt ${loadingAttempts.current}/2)`);
+          
+          // Wait and retry after 10 seconds
+          setTimeout(() => {
+            setRouteLoadingError(`Retrying to load routes... (Attempt ${loadingAttempts.current}/2)`);
+            loadRouteData(stopsWithDistance);
+          }, 10000);
+          return;
+        }
+        
+        setRouteLoadingError("Couldn't load route information due to API rate limits. You can still view the stops.");
+      }
+    } catch (error) {
+      console.error('Error loading routes:', error);
+      setRouteLoadingError("Couldn't fetch route information. Stops are still available.");
+    } finally {
+      setIsLoadingRoutes(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load stops on component mount
+  useEffect(() => {
+    loadNearbyStops();
+  }, []);
+
+  // Handle refresh
+  const onRefresh = () => {
+    loadNearbyStops(true);
+  };
+
+  // Navigate to specific route with stop information
+  const navigateToRoute = (routeId: string, bound: string, serviceType: string, stop: NearbyStop) => {
+    router.push({
+      pathname: "/(Home)/[id]",
+      params: { 
+        id: `${routeId}_${bound}_${serviceType}`,
+        stopId: stop.stop,
+        stopLat: stop.lat,
+        stopLng: stop.long,
+        stopName: stop.name_en,
+        stopSeq: "1" // Default sequence since we don't know the exact sequence here
+      }
+    });
+  };
+
+  // Render route chip
+  const RouteChip = ({ 
+    routeId, 
+    bound, 
+    serviceType, 
+    destination,
+    stop
+  }: { 
+    routeId: string; 
+    bound: string; 
+    serviceType: string; 
+    destination: string;
+    stop: NearbyStop;
+  }) => (
+    <TouchableOpacity 
+      style={[styles.routeChip, {
+        backgroundColor: isDark ? colors.card : '#f0f0f0',
+      }]}
+      onPress={() => navigateToRoute(routeId, bound, serviceType, stop)}
+    >
+      <Text style={[styles.routeChipNumber, { color: colors.primary }]}>{routeId}</Text>
+      <Text style={[styles.routeChipDestination, { color: colors.subText }]} numberOfLines={1}>
+        {destination}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  // Render each stop item - update to handle missing route data
+  const renderStopItem = ({ item }: { item: NearbyStop }) => (
+    <View style={[styles.stopItem, {
+      backgroundColor: colors.card,
+      shadowColor: isDark ? 'transparent' : '#000',
+    }]}>
+      <View style={styles.stopHeader}>
+        <Text style={[styles.stopName, { color: colors.text }]}>{item.name_en}</Text>
+        <View style={[styles.distanceBadge, { backgroundColor: colors.primary }]}>
+          <MaterialIcons name="near-me" size={14} color="#FFF" />
+          <Text style={styles.distanceText}>{formatDistance(item.distance)}</Text>
+        </View>
+      </View>
+      <Text style={[styles.stopNameLocal, { color: colors.subText }]}>{item.name_tc}</Text>
+      
+      {isLoadingRoutes && !item.routes && (
+        <View style={styles.routeLoadingContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.routeLoadingText, { color: colors.subText }]}>Loading route information...</Text>
+        </View>
+      )}
+      
+      {item.routes && item.routes.length > 0 ? (
+        <View style={styles.routesContainer}>
+          <Text style={[styles.routesTitle, { color: colors.subText }]}>Routes passing this stop:</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.routesScrollContent}
+          >
+            {item.routes.map((route, index) => (
+              <RouteChip 
+                key={`${route.routeId}_${route.bound}_${route.serviceType}`}
+                routeId={route.routeId}
+                bound={route.bound}
+                serviceType={route.serviceType}
+                destination={route.destination}
+                stop={item}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : (!isLoadingRoutes && (
+        <Text style={[styles.noRoutesText, { color: colors.subText }]}>
+          {routeLoadingError ? 'Route information unavailable due to API limits.' : 'No routes available for this stop.'}
+        </Text>
+      ))}
+      
+      <Text style={[styles.stopId, { color: colors.subText }]}>Stop ID: {item.stop}</Text>
+    </View>
+  );
+
+  if (locationError) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+        <MaterialIcons name="location-off" size={40} color={colors.subText} />
+        <Text style={[styles.errorText, { color: colors.text }]}>{locationError}</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            setLocationError(null);
+            loadNearbyStops();
+          }}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Update return with API error handling
+  if (apiError && nearbyStops.length === 0) {
+    return (
+      <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+        <MaterialIcons name="error-outline" size={40} color={colors.subText} />
+        <Text style={[styles.errorText, { color: colors.text }]}>{apiError}</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: colors.primary }]}
+          onPress={() => {
+            setApiError(null);
+            loadNearbyStops(true);
+          }}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.subText }]}>Finding nearby bus stops...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <FlatList
+        data={nearbyStops}
+        renderItem={renderStopItem}
+        keyExtractor={(item) => item.stop}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={[colors.primary]} 
+            tintColor={colors.primary}
+          />
+        }
+        ListHeaderComponent={
+          <View style={[styles.header, { backgroundColor: colors.card }]}>
+            <Text style={[styles.title, { color: colors.text }]}>Nearby Bus Stops</Text>
+            <Text style={[styles.subtitle, { color: colors.subText }]}>
+              Found {nearbyStops.length} stops within {RADIUS_KM}km
+            </Text>
+            {apiError && (
+              <Text style={[styles.errorBanner, { 
+                backgroundColor: colors.banner.error.background,
+                color: colors.banner.error.text 
+              }]}>{apiError}</Text>
+            )}
+            {routeLoadingError && (
+              <Text style={[styles.warningBanner, { 
+                backgroundColor: colors.banner.warning.background,
+                color: colors.banner.warning.text
+              }]}>{routeLoadingError}</Text>
+            )}
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
+            <MaterialIcons name="location-searching" size={60} color={isDark ? '#555' : '#ccc'} />
+            <Text style={[styles.emptyText, { color: colors.text }]}>No bus stops found nearby</Text>
+            <Text style={[styles.emptySubtext, { color: colors.subText }]}>
+              Try increasing the search radius or moving to a different location
+            </Text>
+          </View>
+        }
+        contentContainerStyle={
+          nearbyStops.length === 0 ? { flex: 1, backgroundColor: colors.background } : [styles.listContent, { backgroundColor: colors.background }]
+        }
+      />
+    </View>
+  );
+};
+
+export default NearbyStops;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#333',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  listContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  stopItem: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  stopHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  stopName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  stopNameLocal: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  stopId: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8,
+  },
+  distanceBadge: {
+    backgroundColor: '#007AFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  distanceText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 3,
+  },
+  routesContainer: {
+    marginTop: 8,
+  },
+  routesTitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#555',
+    marginBottom: 8,
+  },
+  routesScrollContent: {
+    paddingBottom: 5,
+  },
+  routeChip: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: 150,
+  },
+  routeChipNumber: {
+    fontWeight: '700',
+    color: '#007AFF',
+    fontSize: 14,
+    marginRight: 6,
+  },
+  routeChipDestination: {
+    fontSize: 12,
+    color: '#555',
+    flex: 1,
+    flexShrink: 1,
+  },
+  noRoutesText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#999',
+    marginTop: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#555',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  routeLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  routeLoadingText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 8,
+  },
+  errorBanner: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 4,
+    color: '#856404',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  warningBanner: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 4,
+    color: '#856404',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+});
