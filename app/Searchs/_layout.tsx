@@ -2,16 +2,14 @@ import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
 import { Stack } from 'expo-router'
 
-const MapsLayout = () => {
+const Layout = () => {
   return (
-    <Stack screenOptions={{
-      title: "Home",
-    }}>
-        
-    </Stack>
+        <Stack screenOptions={{
+            headerShown: false,
+        }} />
   )
 }
 
-export default MapsLayout
+export default Layout
 
 const styles = StyleSheet.create({})
