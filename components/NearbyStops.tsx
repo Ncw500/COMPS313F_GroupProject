@@ -27,6 +27,8 @@ interface NearbyStop extends StopInfo {
   }>;
 }
 
+
+
 const RADIUS_KM = 0.5; // 500m radius to search for stops
 
 const NearbyStops = () => {
@@ -46,62 +48,53 @@ const NearbyStops = () => {
   // Function to load nearby bus stops with route information - with progressive loading
   const loadNearbyStops = async (forceRefresh = false) => {
     const startTime = Date.now();
-    console.log('--- loadNearbyStops START ---'); // 新增总开始日志
+    console.log('--- loadNearbyStops START ---');
     try {
       if (forceRefresh) {
         setRefreshing(true);
       }
-      
+  
       setLoading(true);
       setApiError(null);
       setRouteLoadingError(null);
       loadingAttempts.current = 0;
-
-      // 1. Get user's location
+  
+      // 获取用户位置
       console.log('Step 1: Start requesting location permissions');
       const permissionStartTime = Date.now();
       let { status } = await Location.requestForegroundPermissionsAsync();
       console.log(`Step 1: Permissions request took ${Date.now() - permissionStartTime} ms`);
-      
+  
       if (status !== 'granted') {
         setLocationError('Location permission denied. Please enable location services to find nearby stops.');
         setLoading(false);
         setRefreshing(false);
         return;
       }
-
+  
       console.log('Step 1: Start getting current position');
       const positionStartTime = Date.now();
       const userLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: 10000, // 10 seconds
       });
-      // 新增地址信息日志
       console.log(`Step 1: Current position coordinates: latitude=${userLocation.coords.latitude.toFixed(6)}, longitude=${userLocation.coords.longitude.toFixed(6)}`);
       setLocation(userLocation);
-
-      // 2. Fetch all bus stops and route data in parallel
+  
+      // 获取所有站点和路线数据
       console.log('Step 2: Start fetching stops and route stops');
       const fetchStartTime = Date.now();
       const [allStops, allRouteStops] = await Promise.all([
-        fetchAllStops().then(result => {
-          const duration = Date.now() - fetchStartTime;
-          console.log(`Step 2a: fetchAllStops took ${duration} ms with ${result.length} stops`);
-          return result;
-        }),
-        fetchAllRouteStops().then(result => {
-          const duration = Date.now() - fetchStartTime;
-          console.log(`Step 2b: fetchAllRouteStops took ${duration} ms with ${result.length} route stops`);
-          return result;
-        })
-      ]);
+        retryableFetch(fetchAllStops, 3, 2000),
+        retryableFetch(fetchAllRouteStops, 3, 2000)
+      ]) as [StopInfo[], RouteStop[]]; // 明确指定类型
       console.log(`Step 2: Total fetch took ${Date.now() - fetchStartTime} ms`);
-
-      // 3. Calculate distances and filter nearby stops
+  
+      // 计算距离并过滤附近站点
       console.log('Step 3: Start processing stops data');
       const processStartTime = Date.now();
       const stopsWithDistance = allStops
-        .map((stop) => ({
+        .map((stop: StopInfo) => ({ // 明确指定 stop 类型
           ...stop,
           distance: calculateDistance(
             userLocation.coords.latitude,
@@ -114,20 +107,20 @@ const NearbyStops = () => {
         .sort((a, b) => a.distance - b.distance)
         .slice(0, 30);
       console.log(`Step 3: Processing took ${Date.now() - processStartTime} ms`);
-
-      // Set basic stop data first without routes - SHOW STOPS IMMEDIATELY
+  
+      // 设置基本站点数据
       setNearbyStops(stopsWithDistance);
       setLoading(false);
-      
-      // If no stops found, we can return early
+  
+      // 如果没有找到站点，提前返回
       if (stopsWithDistance.length === 0) {
         setRefreshing(false);
         return;
       }
-      
-      // 4. Now load route data in background with retry mechanism
+  
+      // 加载路线数据
       loadRouteData(stopsWithDistance, allRouteStops);
-      
+  
     } catch (error) {
       console.error('Error loading nearby stops:', error);
       setApiError('An error occurred while loading data. Please try again later.');
@@ -136,7 +129,7 @@ const NearbyStops = () => {
       setRefreshing(false);
     } finally {
       const duration = Date.now() - startTime;
-      console.log(`--- loadNearbyStops END (Total: ${duration} ms) ---`); // 新增总结束日志
+      console.log(`--- loadNearbyStops END (Total: ${duration} ms) ---`);
       setRefreshing(false);
     }
   };
@@ -642,3 +635,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+const retryableFetch = async (func: Function, maxRetries: number, delayMs: number) => {
+  for (let retry = 0; retry < maxRetries; retry++) {
+    try {
+      return await func();
+    } catch (error) {
+      if (retry < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, retry)));
+      } else {
+        throw error;
+      }
+    }
+  }
+};

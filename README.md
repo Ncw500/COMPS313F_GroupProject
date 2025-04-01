@@ -14,6 +14,8 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
    ```bash
     npx expo start
+    # or
+    ./node_modules/.bin/expo start
    ```
 
 In the output, you'll find options to open the app in a

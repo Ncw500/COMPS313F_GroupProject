@@ -4,16 +4,16 @@ import MapView, { Marker, Callout, Polyline, Region, MapStyleElement } from 'rea
 import * as Location from 'expo-location';
 import { Entypo } from '@expo/vector-icons';
 import { RouteStop, StopInfo } from '@/types/Interfaces';
-import { fetchDirectionsPath } from '@/utils/api';
+import { fetchDirectionsPath, fetchDirectionsPathWithBackup } from '@/utils/api';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
 
 interface StopLocation {
-    stopId: string;
-    latitude: number;
-    longitude: number;
-    stopName: string;
-    seq: number;
+  stopId: string;
+  latitude: number;
+  longitude: number;
+  stopName: string;
+  seq: number;
 }
 
 interface MapComponentProps {
@@ -258,28 +258,26 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
 
   // Focus map on a specific stop
   const focusOnStop = (stop: StopLocation) => {
+    console.log(`Entering focusOnStop at ${new Date().toISOString()}`);
     if (!mapViewRef.current) return;
-    
-    // Animate to the selected stop with some zoom
+
     const region: Region = {
       latitude: stop.latitude,
       longitude: stop.longitude,
-      latitudeDelta: 0.005, // More zoomed in when focusing on a single stop
+      latitudeDelta: 0.005,
       longitudeDelta: 0.005,
     };
-    
+
     mapViewRef.current.animateToRegion(region, 1000);
-    
-    // Highlight the marker
+
     setActiveMarkerId(stop.stopId);
-    
-    // After a delay, reset the active marker to remove highlight effect
+
     setTimeout(() => {
       setActiveMarkerId(null);
     }, 3000);
 
-    // Mark that we've set an initial region
     setInitialRegionSet(true);
+    console.log(`Exiting focusOnStop at ${new Date().toISOString()}`);
   };
 
   // Expose methods to parent component
@@ -288,8 +286,8 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
   }));
 
   useEffect(() => {
-    // Get user location
     (async () => {
+      console.log(`Entering useEffect (location & route) at ${new Date().toISOString()}`);
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
@@ -307,15 +305,15 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       } catch (error) {
         console.error('Error getting location:', error);
       }
-    })();
 
-    // If we have route information, fetch stops for that route
-    if (routeId && routeBound && serviceType) {
-      fetchRouteStops(routeId, routeBound, serviceType);
-    } else {
-      // Fallback to loading some nearby stops
-      fetchNearbyStops();
-    }
+      if (routeId && routeBound && serviceType) {
+        await fetchRouteStops(routeId, routeBound, serviceType);
+      } else {
+        await fetchNearbyStops();
+      }
+    })().finally(() => {
+      console.log(`Exiting useEffect (location & route) at ${new Date().toISOString()}`);
+    });
   }, [routeId, routeBound, serviceType]);
 
   const fetchNearbyStops = async () => {
@@ -323,10 +321,9 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       setIsLoading(true);
       const response = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop');
       const data = await response.json();
-      
-      // Limit to a reasonable number for performance
+
       const limitedStops = data.data.slice(0, 50);
-      
+
       setRouteStops(limitedStops);
     } catch (error) {
       console.error('Error fetching bus stops:', error);
@@ -337,36 +334,29 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
 
   // Fetch route stops and then fetch path directions
   const fetchRouteStops = async (routeId: string, routeBound: string, serviceType: string) => {
+    console.log(`Entering fetchRouteStops at ${new Date().toISOString()}`);
     try {
       setIsLoading(true);
-      
-      // Convert bound format (O/I to outbound/inbound)
+
       const boundDirection = routeBound === 'O' ? 'outbound' : 'inbound';
-      
-      // Fetch route stops
+
       const routeStopsResponse = await fetch(
         `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${routeId}/${boundDirection}/${serviceType}`
       );
       const routeStopsData = await routeStopsResponse.json();
-      
+
       if (!routeStopsData.data || !Array.isArray(routeStopsData.data)) {
         console.error('Invalid route stops data:', routeStopsData);
         return;
       }
 
-      // Extract stop IDs and fetch details for each stop
       const stopPromises = routeStopsData.data.map(async (routeStop: RouteStop) => {
         try {
           const stopResponse = await fetch(
             `https://data.etabus.gov.hk/v1/transport/kmb/stop/${routeStop.stop}`
           );
           const stopData = await stopResponse.json();
-          
-          // Combine the sequence information with stop details
-          return {
-            ...stopData.data,
-            seq: parseInt(routeStop.seq) // Add sequence number
-          };
+          return { ...stopData.data, seq: parseInt(routeStop.seq) };
         } catch (error) {
           console.error(`Error fetching stop ${routeStop.stop}:`, error);
           return null;
@@ -375,20 +365,15 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
 
       const stops = await Promise.all(stopPromises);
       const validStops = stops.filter(stop => stop !== null) as BusStop[];
-      
-      // Sort stops by sequence number
       validStops.sort((a, b) => (a.seq || 0) - (b.seq || 0));
       setRouteStops(validStops);
-      
-      // After we have stops, fetch directions between them
+
       if (validStops.length > 1) {
         fetchRouteDirections(validStops);
       }
 
-      // Automatically focus on the first stop or the entire route when first loaded
       if (!initialRegionSet && validStops.length > 0) {
         setTimeout(() => {
-          // If there's no selectedStop yet, focus on the first stop
           if (!selectedStop && mapViewRef.current) {
             const firstStop = validStops[0];
             const stopLocation: StopLocation = {
@@ -399,109 +384,117 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
               seq: firstStop.seq || 1
             };
             focusOnStop(stopLocation);
-
-            // Or, if you prefer to focus on the entire route path, you can use:
-            // mapViewRef.current.fitToCoordinates(
-            //   validStops.map(stop => ({latitude: parseFloat(stop.lat), longitude: parseFloat(stop.long)})),
-            //   {edgePadding: {top: 50, right: 50, bottom: 50, left: 50}, animated: true}
-            // );
           }
-        }, 500); // Give a small delay to ensure map is ready
+        }, 500);
       }
-    } catch (error) {
-      console.error('Error fetching route stops:', error);
     } finally {
       setIsLoading(false);
+      console.log(`Exiting fetchRouteStops at ${new Date().toISOString()}`);
     }
   };
 
   // Fetch directions between sequential stops
   const fetchRouteDirections = async (stops: BusStop[]) => {
+    const startTime = Date.now();
     try {
       setIsLoadingPath(true);
       const paths: RoutePathSection[] = [];
-      
-      // Process stops in pairs to get directions between consecutive stops
-      for (let i = 0; i < stops.length - 1; i++) {
-        const origin = {
-          lat: parseFloat(stops[i].lat),
-          lng: parseFloat(stops[i].long)
-        };
-        
-        const destination = {
+      let allResults: any[] = [];
+
+      const batchSize = 25;
+      const promises = stops.slice(0, stops.length - 1).map((stop, i) => ({
+        index: i,
+        origin: {
+          lat: parseFloat(stop.lat),
+          lng: parseFloat(stop.long)
+        },
+        destination: {
           lat: parseFloat(stops[i + 1].lat),
           lng: parseFloat(stops[i + 1].long)
-        };
+        }
+      }));
+      console.log(`@@@@@@@@@@@@@@@@@@@@@@@@Total segments to fetch: ${promises.length}`);
+
+      // 正确实现批次间间隔的批处理（新增关键修改）
+      let batchIndex = 0;
+      const apiRateLimit = 10; // 每秒最大请求数
+      const batchInterval = 1000 / Math.ceil(apiRateLimit / batchSize); // 根据速率限制计算间隔
+      var countLoop = 0;
+
+      while (batchIndex < promises.length) {
+        countLoop++;
+        console.log(`fetchDirectionsPathWithBackup Loop count ${countLoop}`);
+        const currentBatch = promises.slice(batchIndex, batchIndex + batchSize);
+        const batchResults = await Promise.all(
+          currentBatch.map(async (item) => {
+            try {
+              const path = await fetchDirectionsPathWithBackup(item.origin, item.destination);
+              return { path, ...item };
+            } catch (err) {
+              console.error(`Failed fetching path for segment ${item.index}:`, err);
+              return { ...item, path: null };
+            }
+          })
+        );
+        allResults.push(...batchResults);
         
-        try {
-          const pathSegment = await fetchDirectionsPath(origin, destination);
-          
-          if (pathSegment && pathSegment.length > 0) {
-            paths.push({
-              coordinates: pathSegment,
-              color: '#007AFF' // Use a consistent color for all segments
-            });
-          } else {
-            // If we couldn't get directions, fall back to a straight line
-            paths.push({
-              coordinates: [
-                { latitude: origin.lat, longitude: origin.lng },
-                { latitude: destination.lat, longitude: destination.lng }
-              ],
-              color: '#AAAAAA' // Use a different color for straight lines
-            });
-          }
-        } catch (error) {
-          console.error(`Error fetching directions for segment ${i}:`, error);
-          // Fall back to a straight line on error
+        // 动态调整间隔时间
+        if (batchIndex + batchSize < promises.length) {
+          await new Promise(resolve => setTimeout(resolve, batchInterval));
+        }
+
+        batchIndex += batchSize;
+      }
+
+      allResults.forEach(result => {
+        if (result.path && result.path.length > 0) {
+          paths.push({
+            coordinates: result.path,
+            color: '#007AFF'
+          });
+        } else {
           paths.push({
             coordinates: [
-              { latitude: origin.lat, longitude: origin.lng },
-              { latitude: destination.lat, longitude: destination.lng }
+              { latitude: result.origin.lat, longitude: result.origin.lng },
+              { latitude: result.destination.lat, longitude: result.destination.lng }
             ],
             color: '#AAAAAA'
           });
         }
-        
-        // Add a small delay to avoid rate limiting issues with the directions API
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-      
+      });
+
       setRoutePaths(paths);
 
-      // After paths are loaded, make the map fit to the entire route if not already focused
       if (!initialRegionSet && mapViewRef.current && stops.length > 1 && mapReady) {
         setTimeout(() => {
           try {
-            // For Android or if we're already using Google Maps provider
             mapViewRef.current?.fitToCoordinates(
               stops.map(stop => ({
-                latitude: parseFloat(stop.lat), 
+                latitude: parseFloat(stop.lat),
                 longitude: parseFloat(stop.long)
               })),
               {
-                edgePadding: {top: 70, right: 50, bottom: 70, left: 50}, 
+                edgePadding: { top: 70, right: 50, bottom: 70, left: 50 },
                 animated: true
               }
             );
             setInitialRegionSet(true);
-            
-            // For iOS, we'll handle this in the separate effect
+
             if (Platform.OS === 'ios') {
               setPathsRendered(false);
             } else {
               setPathsRendered(true);
             }
+            console.log(`Fit to coordinates completed at ${Date.now() - startTime}ms`);
           } catch (e) {
             console.error('Error fitting to coordinates:', e);
           }
-        }, 800); // Give time for paths to render
+        }, 800);
       }
     } catch (error) {
       console.error('Error fetching route directions:', error);
       Alert.alert('Error', 'Could not load route paths. Using straight lines instead.');
-      
-      // Fall back to straight line connections
+
       if (stops.length > 1) {
         const fallbackPath: RoutePathSection = {
           coordinates: stops.map(stop => ({
@@ -514,36 +507,32 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       }
     } finally {
       setIsLoadingPath(false);
+      console.log(`Exiting fetchRouteDirections total time: ${Date.now() - startTime}ms`);
     }
   };
 
   // This effect handles rendering paths properly on iOS
   useEffect(() => {
-    // If map is ready and we have route paths but they haven't been rendered
     if (mapReady && routePaths.length > 0 && !pathsRendered && pathRenderAttempts.current < 3) {
-      // On iOS, we need to trigger a small update to the map to make polylines appear
       const timer = setTimeout(() => {
         if (Platform.OS === 'ios' && mapViewRef.current) {
           console.log('Triggering iOS polyline refresh');
-          
-          // Force a small region update to refresh the map
           mapViewRef.current.animateToRegion({
             ...region,
-            latitudeDelta: region.latitudeDelta * 0.99, // Very small change to trigger refresh
+            latitudeDelta: region.latitudeDelta * 0.99,
             longitudeDelta: region.longitudeDelta * 0.99,
           }, 100);
-          
-          // Try to fit to coordinates again
+
           setTimeout(() => {
             if (mapViewRef.current && routeStops.length > 1) {
               try {
                 mapViewRef.current.fitToCoordinates(
                   routeStops.map(stop => ({
-                    latitude: parseFloat(stop.lat), 
+                    latitude: parseFloat(stop.lat),
                     longitude: parseFloat(stop.long)
                   })),
                   {
-                    edgePadding: {top: 70, right: 50, bottom: 70, left: 50}, 
+                    edgePadding: { top: 70, right: 50, bottom: 70, left: 50 },
                     animated: true
                   }
                 );
@@ -556,14 +545,13 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
         }
         pathRenderAttempts.current += 1;
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [mapReady, routePaths, pathsRendered]);
 
   // Calculate the region to display on the map
   const calculateRegion = () => {
-    // Default to Hong Kong
     if (!routeStops.length) {
       return {
         latitude: 22.302711,
@@ -573,7 +561,6 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       };
     }
 
-    // If we have route stops, center on the first stop or calculate bounds
     if (routeStops.length === 1) {
       return {
         latitude: parseFloat(routeStops[0].lat),
@@ -583,26 +570,24 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       };
     }
 
-    // Calculate bounds for multiple stops
     let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-    
+
     routeStops.forEach(stop => {
       const lat = parseFloat(stop.lat);
       const lng = parseFloat(stop.long);
-      
+
       minLat = Math.min(minLat, lat);
       maxLat = Math.max(maxLat, lat);
       minLng = Math.min(minLng, lng);
       maxLng = Math.max(maxLng, lng);
     });
-    
+
     const centerLat = (minLat + maxLat) / 2;
     const centerLng = (minLng + maxLng) / 2;
-    
-    // Add some padding
+
     const latDelta = (maxLat - minLat) * 1.5 || 0.01;
     const lngDelta = (maxLng - minLng) * 1.5 || 0.01;
-    
+
     return {
       latitude: centerLat,
       longitude: centerLng,
@@ -613,30 +598,33 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
 
   // Get route path coordinates for the Polyline
   const getRouteCoordinates = () => {
-    return routeStops.map(stop => ({
+    console.log(`Entering getRouteCoordinates at ${new Date().toISOString()}`);
+    const coordinates = routeStops.map(stop => ({
       latitude: parseFloat(stop.lat),
       longitude: parseFloat(stop.long),
     }));
+    console.log(`Exiting getRouteCoordinates at ${new Date().toISOString()}`);
+    return coordinates;
   };
 
-  const region = location && routeStops.length === 0 
+  const region = location && routeStops.length === 0
     ? {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      } 
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    }
     : calculateRegion();
-  
+
   // Render fallback UI if there's an error with the map
   if (mapError || mapProviderError) {
     return (
       <View style={[styles.errorContainer, { backgroundColor: colors.surface }]}>
         <Text style={[styles.errorText, { color: colors.secondary }]}>Map could not be loaded</Text>
         <Text style={[styles.errorSubtext, { color: colors.subText }]}>{mapError || "Map provider not available on this device"}</Text>
-        <View style={[styles.stopsList, { 
+        <View style={[styles.stopsList, {
           backgroundColor: colors.card,
-          shadowColor: isDark ? 'transparent' : '#000', 
+          shadowColor: isDark ? 'transparent' : '#000',
         }]}>
           <Text style={[styles.stopsHeader, { color: colors.primary }]}>Route Stops:</Text>
           {routeStops.map((stop, index) => (
@@ -655,13 +643,14 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
 
   // Conditionally handle map provider based on platform and ability to load Google Maps
   const getMapProvider = () => {
+    console.log(`Entering getMapProvider at ${new Date().toISOString()}`);
     try {
-      // Only use Google Maps on Android, default to standard provider on iOS 
       return Platform.OS === 'android' ? 'google' : undefined;
     } catch (error) {
       console.error('Error determining map provider:', error);
       setMapProviderError(true);
-      return undefined; // Fall back to default provider
+      console.log(`Exiting getMapProvider at ${new Date().toISOString()}`);
+      return undefined;
     }
   };
 
@@ -675,11 +664,11 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
           </Text>
         </View>
       )}
-      
-      <MapView 
+
+      <MapView
         ref={mapViewRef}
-        style={[styles.map, isLoading && { display: 'none' }]} 
-        initialRegion={region} 
+        style={[styles.map, isLoading && { display: 'none' }]}
+        initialRegion={region}
         provider={getMapProvider()} // Don't directly use PROVIDER_GOOGLE constant which may be undefined
         showsUserLocation={true}
         showsTraffic={false}
@@ -689,7 +678,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
           setIsLoading(false);
           setMapReady(true);
         }}
-       
+
       >
         {/* Render bus stop markers with unique keys */}
         {routeStops.map((stop, index) => {
@@ -705,16 +694,16 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
             >
               <View style={styles.markerContainer}>
                 <View style={[
-                  styles.markerCircle, 
+                  styles.markerCircle,
                   { backgroundColor: isActive ? colors.mapMarkerActive : colors.mapMarker },
                   isActive && styles.markerCircleActive
                 ]}>
                   <Text style={styles.markerText}>{stop.seq || index + 1}</Text>
                 </View>
-                <Entypo 
-                  name="location-pin" 
-                  size={24} 
-                  color={isActive ? colors.primary : colors.secondary} 
+                <Entypo
+                  name="location-pin"
+                  size={24}
+                  color={isActive ? colors.primary : colors.secondary}
                 />
               </View>
               <Callout>
@@ -730,10 +719,10 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
 
         {/* Draw route lines using path segments with unique keys */}
         {routePaths.map((pathSection, index) => {
-          const coordinateHash = pathSection.coordinates.length > 0 
-            ? `${pathSection.coordinates[0].latitude}-${pathSection.coordinates[0].longitude}` 
+          const coordinateHash = pathSection.coordinates.length > 0
+            ? `${pathSection.coordinates[0].latitude}-${pathSection.coordinates[0].longitude}`
             : '';
-            
+
           return (
             <Polyline
               key={`path-${index}-${coordinateHash}`}
@@ -751,7 +740,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       </MapView>
 
       {!isLoading && !isLoadingPath && routePaths.length > 0 && (
-        <View style={[styles.routeInfoBanner, { 
+        <View style={[styles.routeInfoBanner, {
           backgroundColor: colors.banner.info.background
         }]}>
           <Text style={[styles.routeInfoText, {

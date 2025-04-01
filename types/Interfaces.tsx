@@ -66,3 +66,15 @@ export interface StopInfo {
     lat: string;
     long: string;
 }
+
+// 定义 LatLng 类型
+export interface LatLng {
+    lat: number;
+    lng: number;
+}
+
+export interface PathCacheItem {
+    path: { latitude: number; longitude: number }[];
+    timestamp: number;
+  }
+  

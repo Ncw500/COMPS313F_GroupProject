@@ -53,6 +53,8 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
 
                 if (etaResult.data.service_type === "2")
                     filteredETAData = etaResult.data.filter((item: OriginRouteETA) => {
+                        
+                        
                         return item.dir === oppositeDir
                     })
                 else
@@ -68,11 +70,15 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                 stopInfoResults.forEach((info) => {
                     stopInfoMap[info.stop] = info;
                 });
-
+                // console.log("🚀 ~ fetchRouteDetail ~ stopResult.data:", stopResult.data)
+                        // console.log("🚀 ~ fetchRouteDetail ~ filteredETAData:", filteredETAData)
+                        // console.log("🚀 ~ fetchRouteDetail ~ stopInfoMap:", stopInfoMap)
                 const mergedData = mergeData(filteredETAData, stopResult.data, stopInfoMap);
 
                 setRouteETA(mergedData);
+                // console.log('Final Merged Data:', mergedData);
             } catch (error) {
+                
                 console.error('Error fetching route details:', error);
             } finally {
                 setLoading(false);
@@ -144,6 +150,9 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
         stopData: RouteStop[],
         stopInfoMap: { [key: string]: StopInfo }
     ): MergedRouteETA[] => {
+        // console.log("🚀 ~ RouteETAList ~ etaData:", etaData)
+        // console.log("ID: " + id)
+        const { routeId, routeBound, routeServiceType } = splitId(id)
         const mergedMap: { [key: string]: MergedRouteETA } = {};
 
         const stopSeqMap: { [key: number]: RouteStop } = {};
@@ -155,6 +164,11 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             const { dir, seq, eta_seq, eta, rmk_tc, rmk_sc, rmk_en } = item;
             const key = `${dir}_${seq}`;
 
+            if (dir !== routeBound) {
+                return;
+            }
+
+            // console.log("🚀 ~ etaData.forEach ~ key:", key)
             if (!mergedMap[key]) {
                 const routeStop = stopSeqMap[seq];
                 if (!routeStop) return;

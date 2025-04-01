@@ -1,4 +1,13 @@
-import { Route, StopInfo, RouteStop } from '@/types/Interfaces';
+import { LatLng, Route, RouteStop, StopInfo, PathCacheItem } from '@/types/Interfaces';
+import { decode } from '@mapbox/polyline';
+import { GOOGLE_API_KEY } from '@env';
+
+/**
+ * 解码Polyline编码的路径
+ */
+const decodePolyline = (polyline: string): { latitude: number; longitude: number }[] => {
+  return decode(polyline).map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+};
 
 /**
  * Base URL for the KMB API
@@ -94,7 +103,16 @@ export const fetchAllStops = async (): Promise<StopInfo[]> => {
   
   try {
     console.log('Fetching all stops...');
-    const result = await fetchWithCache(`${API_BASE_URL}/stop`, 'all_stops');
+    const EXTENDED_CACHE_DURATION = 15 * 60 * 1000; // 15分钟
+    const now = Date.now();
+    const cacheKey = 'all_stops';
+    
+    if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < EXTENDED_CACHE_DURATION) {
+      console.log(`Using cached stop data from memory cache`);
+      return cache[cacheKey].data;
+    }
+    
+    const result = await fetchWithCache(`${API_BASE_URL}/stop`, 'all_stops', 3); // 增加重试次数
     console.log(`fetchAllStops completed in ${Date.now() - startTime}ms with ${result.length} stops`);
     return result;
   } catch (error) {
@@ -247,11 +265,6 @@ export const formatDistance = (meters: number): string => {
   }
 };
 
-interface LatLng {
-  lat: number;
-  lng: number;
-}
-
 interface DirectionsResult {
   routes: Array<{
     overview_polyline: {
@@ -268,78 +281,47 @@ interface DirectionsResult {
 }
 
 /**
- * Decode a Google Maps encoded polyline string
- */
-const decodePolyline = (encoded: string) => {
-  if (!encoded) return [];
-  
-  const poly = [];
-  let index = 0, len = encoded.length;
-  let lat = 0, lng = 0;
-
-  while (index < len) {
-    let b, shift = 0, result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-
-    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-    lat += dlat;
-
-    shift = 0;
-    result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-
-    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-    lng += dlng;
-
-    poly.push({
-      latitude: lat * 1e-5,
-      longitude: lng * 1e-5
-    });
-  }
-  
-  return poly;
-};
-
-/**
- * Fetch directions path between two coordinates using OSRM (Open Source Routing Machine)
- * This is a free alternative to Google Maps Directions API
+ * Fetch directions path between two coordinates using OSRM and Google Maps APIs with logging
  */
 export const fetchDirectionsPath = async (
   origin: LatLng, 
   destination: LatLng
-) => {
+): Promise<{ latitude: number; longitude: number }[] | null> => {
+  const startTime = Date.now();
+  console.log(`--- fetchDirectionsPath START (Total: ${Date.now() - startTime}ms) ---`);
+  
   try {
-    // Use OSRM public instance - no API key required
-    // Note: This service has usage limitations and should be replaced with a proper API for production
-    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=polyline`;
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch directions: ${response.status}`);
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=polyline`;
+
+
+    // OSRM 请求开始
+    console.log(`OSRM request started`);
+    let osrmResponse = await Promise.race([
+      fetch(osrmUrl),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('OSRM timeout')), 5000))
+    ]) as Response;
+    console.log(`OSRM request completed at ${Date.now() - startTime}ms`);
+
+    if (osrmResponse.ok) {
+      const data = await osrmResponse.json();
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        const decodeTime = Date.now();
+        const path = decodePolyline(data.routes[0].geometry);
+        console.log(`OSRM path decoded in ${Date.now() - decodeTime}ms`);
+        console.log(`fetchDirectionsPath SUCCESS (OSRM) at ${Date.now() - startTime}ms`);
+        return path;
+      }
+    } else {
+      console.error('OSRM returned non-OK response:', osrmResponse.status, osrmResponse.statusText);
     }
-    
-    const data = await response.json();
-    
-    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
-      console.warn('Invalid directions response:', data);
-      return null;
-    }
-    
-    // OSRM returns polyline encoded geometry
-    const polyline = data.routes[0].geometry;
-    return decodePolyline(polyline);
-  } catch (error) {
-    console.error('Error fetching directions path:', error);
+
+    console.log(`fetchDirectionsPath FAILED at ${Date.now() - startTime}ms`);
     return null;
+  } catch (error) {
+    console.error('Error fetching directions:', error, `Total time: ${Date.now() - startTime}ms`);
+    return null;
+  } finally {
+    console.log(`--- fetchDirectionsPath END (Total: ${Date.now() - startTime}ms) ---`);
   }
 };
 
@@ -353,10 +335,12 @@ export const fetchGoogleDirectionsPath = async (
   try {
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${apiKey}&mode=driving`;
     
+    // console.log(`🛑Google Directions API request started, url: ${url}`);
     const response = await fetch(url);
     const result: DirectionsResult = await response.json();
     
     if (!result.routes || result.routes.length === 0) {
+      console.log(' Google Paths Faild');
       return null;
     }
     
@@ -376,7 +360,7 @@ export const fetchGoogleDirectionsPath = async (
           }
         }
       }
-      
+      // console.log('🛑 Google Paths', paths);
       return paths;
     }
     
@@ -391,3 +375,46 @@ export const fetchGoogleDirectionsPath = async (
     return null;
   }
 };
+
+// 新增路径缓存机制
+const pathCache = new Map<string, PathCacheItem>();
+const cacheTTL = 60 * 60 * 1000; // 1小时
+
+export const fetchDirectionsPathWithBackup = async (
+  origin: LatLng, 
+  destination: LatLng
+): Promise<{ latitude: number; longitude: number }[] | null> => {
+  const cacheKey = `${origin.lat},${origin.lng}-${destination.lat},${destination.lng}`;
+  
+  // 检查缓存是否存在且未过期
+  const cachedPath = pathCache.get(cacheKey);
+  if (cachedPath && Date.now() - cachedPath.timestamp < cacheTTL) {
+    return cachedPath.path;
+  }
+
+  try {
+    // // 尝试OSRM
+    // const osrmResult = await fetchDirectionsPath(origin, destination);
+    // if (osrmResult) {
+    //   pathCache.set(cacheKey, { path: osrmResult, timestamp: Date.now() });
+    //   return osrmResult;
+    // }
+    
+    // OSRM失败则尝试Google Maps
+    // console.log("✅", GOOGLE_API_KEY);
+    const googleResult = await fetchGoogleDirectionsPath(
+      origin, 
+      destination, 
+      GOOGLE_API_KEY!
+    );
+    if (googleResult) {
+      pathCache.set(cacheKey, { path: googleResult, timestamp: Date.now() });
+      return googleResult;
+    }
+  } catch (error) {
+    console.error('Both APIs failed:', error);
+  }
+
+  return null;
+};
+

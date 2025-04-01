@@ -1,10 +1,10 @@
 import { Tabs } from "expo-router";
 import React, { useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { StatusBar, useColorScheme, Platform } from "react-native";
 import { Colors } from "@/styles/theme";
+
 
 // Tabs wrapper with theme support
 function TabsWrapper() {
