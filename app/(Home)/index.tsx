@@ -5,11 +5,13 @@ import NearbyStops from "@/components/NearbyStops";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTheme } from "@/context/ThemeContext";
 import { Colors } from "@/styles/theme";
+import { useTranslation } from '@/utils/i18n';
 
 export default function HomePage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -17,8 +19,8 @@ export default function HomePage() {
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
           <View style={styles.headerContent}>
             <View>
-              <Text style={[styles.title, { color: colors.text }]}>Bus App</Text>
-              <Text style={[styles.subtitle, { color: colors.subText }]}>Find your next bus easily</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{t('home.title')}</Text>
+              <Text style={[styles.subtitle, { color: colors.subText }]}>{t('home.subtitle')}</Text>
             </View>
             {/* <ThemeToggle showLabel={true} /> */}
           </View>

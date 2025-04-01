@@ -4,13 +4,14 @@ import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { StatusBar, useColorScheme, Platform } from "react-native";
 import { Colors } from "@/styles/theme";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 
 // Tabs wrapper with theme support
 function TabsWrapper() {
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
-  
+
   useEffect(() => {
     // Update status bar style
     StatusBar.setBarStyle(isDark ? 'light-content' : 'dark-content');
@@ -20,7 +21,7 @@ function TabsWrapper() {
   }, [isDark]);
 
   return (
-    <Tabs screenOptions={{ 
+    <Tabs screenOptions={{
       headerShown: false,
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.tabBarInactive,
@@ -77,7 +78,9 @@ function TabsWrapper() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <TabsWrapper />
+      <LanguageProvider>
+        <TabsWrapper />
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

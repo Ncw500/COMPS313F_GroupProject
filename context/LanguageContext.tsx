@@ -41,6 +41,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     useEffect(() => {
         if (isLoaded) {
+            console.log('Language preference changed:', language);
             AsyncStorage.setItem('language', language).catch(err =>
                 console.error('Failed to save language preference:', err)
             );

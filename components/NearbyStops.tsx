@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { calculateDistance, formatDistance, fetchAllStops, fetchAllRouteStops, fetchAllRoutes } from '@/utils/api';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
+import { useTranslation } from '@/utils/i18n';
 
 interface NearbyStop extends StopInfo {
   distance: number;
@@ -44,6 +45,7 @@ const NearbyStops = () => {
   const router = useRouter();
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
 
   // Function to load nearby bus stops with route information - with progressive loading
   const loadNearbyStops = async (forceRefresh = false) => {
@@ -53,25 +55,25 @@ const NearbyStops = () => {
       if (forceRefresh) {
         setRefreshing(true);
       }
-  
+
       setLoading(true);
       setApiError(null);
       setRouteLoadingError(null);
       loadingAttempts.current = 0;
-  
+
       // 获取用户位置
       console.log('Step 1: Start requesting location permissions');
       const permissionStartTime = Date.now();
       let { status } = await Location.requestForegroundPermissionsAsync();
       console.log(`Step 1: Permissions request took ${Date.now() - permissionStartTime} ms`);
-  
+
       if (status !== 'granted') {
         setLocationError('Location permission denied. Please enable location services to find nearby stops.');
         setLoading(false);
         setRefreshing(false);
         return;
       }
-  
+
       console.log('Step 1: Start getting current position');
       const positionStartTime = Date.now();
       const userLocation = await Location.getCurrentPositionAsync({
@@ -80,7 +82,7 @@ const NearbyStops = () => {
       });
       console.log(`Step 1: Current position coordinates: latitude=${userLocation.coords.latitude.toFixed(6)}, longitude=${userLocation.coords.longitude.toFixed(6)}`);
       setLocation(userLocation);
-  
+
       // 获取所有站点和路线数据
       console.log('Step 2: Start fetching stops and route stops');
       const fetchStartTime = Date.now();
@@ -93,7 +95,7 @@ const NearbyStops = () => {
       ]) as [StopInfo[], RouteStop[]];
 
       console.log(`Step 2: Total fetch took ${Date.now() - fetchStartTime} ms`);
-  
+
       // 计算距离并过滤附近站点
       console.log('Step 3: Start processing stops data');
       const processStartTime = Date.now();
@@ -111,20 +113,20 @@ const NearbyStops = () => {
         .sort((a, b) => a.distance - b.distance)
         .slice(0, 30);
       console.log(`Step 3: Processing took ${Date.now() - processStartTime} ms`);
-  
+
       // 设置基本站点数据
       setNearbyStops(stopsWithDistance);
       setLoading(false);
-  
+
       // 如果没有找到站点，提前返回
       if (stopsWithDistance.length === 0) {
         setRefreshing(false);
         return;
       }
-  
+
       // 加载路线数据
       loadRouteData(stopsWithDistance, allRouteStops);
-  
+
     } catch (error) {
       console.error('Error loading nearby stops:', error);
       setApiError('An error occurred while loading data. Please try again later.');
@@ -148,7 +150,7 @@ const NearbyStops = () => {
         console.log("fetchAllRoutes completed in", Date.now() - startTime, "ms with", result.length, "routes");
         return result;
       });
-      
+
       try {
         // Find which routes pass through each nearby stop
         const nearbyWithRoutes = await Promise.all(
@@ -161,9 +163,9 @@ const NearbyStops = () => {
             // Match with route details to get destinations
             const routeDetails = routesForStop.map(routeStop => {
               const matchingRoute = allRoutes.find(
-                route => 
-                  route.route === routeStop.route && 
-                  route.bound === routeStop.bound && 
+                route =>
+                  route.route === routeStop.route &&
+                  route.bound === routeStop.bound &&
                   route.service_type === routeStop.service_type
               );
 
@@ -179,7 +181,7 @@ const NearbyStops = () => {
             routeDetails.sort((a, b) => {
               const numA = parseInt(a.routeId);
               const numB = parseInt(b.routeId);
-            
+
               if (!isNaN(numA) && !isNaN(numB)) {
                 return numA - numB;
               }
@@ -195,14 +197,14 @@ const NearbyStops = () => {
 
         setNearbyStops(nearbyWithRoutes);
         setRouteLoadingError(null);
-      
+
       } catch (routeStopError) {
         console.error('Error loading route-stops:', routeStopError);
-      
+
         if (routeStopError instanceof Error && routeStopError.message.includes('rate limit') && loadingAttempts.current < 2) {
           loadingAttempts.current++;
           setRouteLoadingError(`API rate limit reached. Retrying in 10 seconds... (Attempt ${loadingAttempts.current}/2)`);
-        
+
           // Wait and retry after 10 seconds
           setTimeout(() => {
             setRouteLoadingError(`Retrying to load routes... (Attempt ${loadingAttempts.current}/2)`);
@@ -210,7 +212,7 @@ const NearbyStops = () => {
           }, 10000);
           return;
         }
-      
+
         setRouteLoadingError("Couldn't load route information due to API rate limits. You can still view the stops.");
       }
     } catch (error) {
@@ -240,7 +242,7 @@ const NearbyStops = () => {
     try {
       router.push({
         pathname: "/(Home)/[id]",
-        params: { 
+        params: {
           id: `${routeId}_${bound}_${serviceType}`,
           stopId: stop.stop,
           stopLat: stop.lat,
@@ -256,22 +258,22 @@ const NearbyStops = () => {
   };
 
   // Render route chip
-  const RouteChip = ({ 
-    routeId, 
-    bound, 
-    serviceType, 
+  const RouteChip = ({
+    routeId,
+    bound,
+    serviceType,
     destination,
     stop
-  }: { 
-    routeId: string; 
-    bound: string; 
-    serviceType: string; 
+  }: {
+    routeId: string;
+    bound: string;
+    serviceType: string;
     destination: string;
     stop: NearbyStop;
   }) => {
     const startTime = Date.now();
     const component = (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.routeChip, {
           backgroundColor: isDark ? colors.card : '#f0f0f0',
         }]}
@@ -303,24 +305,24 @@ const NearbyStops = () => {
           </View>
         </View>
         <Text style={[styles.stopNameLocal, { color: colors.subText }]}>{item.name_tc}</Text>
-        
+
         {isLoadingRoutes && !item.routes && (
           <View style={styles.routeLoadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={[styles.routeLoadingText, { color: colors.subText }]}>Loading route information...</Text>
           </View>
         )}
-        
+
         {item.routes && item.routes.length > 0 ? (
           <View style={styles.routesContainer}>
             <Text style={[styles.routesTitle, { color: colors.subText }]}>Routes passing this stop:</Text>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.routesScrollContent}
             >
               {item.routes.map((route, index) => (
-                <RouteChip 
+                <RouteChip
                   key={`${route.routeId}_${route.bound}_${route.serviceType}_${index}`}
                   routeId={route.routeId}
                   bound={route.bound}
@@ -336,7 +338,7 @@ const NearbyStops = () => {
             {routeLoadingError ? 'Route information unavailable due to API limits.' : 'No routes available for this stop.'}
           </Text>
         ))}
-        
+
         <Text style={[styles.stopId, { color: colors.subText }]}>Stop ID: {item.stop}</Text>
       </View>
     );
@@ -349,7 +351,7 @@ const NearbyStops = () => {
       <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
         <MaterialIcons name="location-off" size={40} color={colors.subText} />
         <Text style={[styles.errorText, { color: colors.text }]}>{locationError}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={() => {
             setLocationError(null);
@@ -368,7 +370,7 @@ const NearbyStops = () => {
       <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
         <MaterialIcons name="error-outline" size={40} color={colors.subText} />
         <Text style={[styles.errorText, { color: colors.text }]}>{apiError}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.retryButton, { backgroundColor: colors.primary }]}
           onPress={() => {
             setApiError(null);
@@ -397,10 +399,10 @@ const NearbyStops = () => {
         renderItem={renderStopItem}
         keyExtractor={(item) => item.stop}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
+          <RefreshControl
+            refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]} 
+            colors={[colors.primary]}
             tintColor={colors.primary}
           />
         }
@@ -411,13 +413,13 @@ const NearbyStops = () => {
               Found {nearbyStops.length} stops within {RADIUS_KM}km
             </Text>
             {apiError && (
-              <Text style={[styles.errorBanner, { 
+              <Text style={[styles.errorBanner, {
                 backgroundColor: colors.banner.error.background,
-                color: colors.banner.error.text 
+                color: colors.banner.error.text
               }]}>{apiError}</Text>
             )}
             {routeLoadingError && (
-              <Text style={[styles.warningBanner, { 
+              <Text style={[styles.warningBanner, {
                 backgroundColor: colors.banner.warning.background,
                 color: colors.banner.warning.text
               }]}>{routeLoadingError}</Text>
@@ -640,12 +642,12 @@ const styles = StyleSheet.create({
   },
 });
 
-const retryableFetch = async (func: Function, retries=3, delay=1000) => {
-  for (let i=0; i<retries; i++) {
+const retryableFetch = async (func: Function, retries = 3, delay = 1000) => {
+  for (let i = 0; i < retries; i++) {
     try {
       return await func();
     } catch (e) {
-      await new Promise(resolve => setTimeout(resolve, delay*(i+1)));
+      await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
     }
   }
   throw new Error('Retry failed');

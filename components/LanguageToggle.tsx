@@ -15,6 +15,17 @@ export const LanguageToggle = ({ style, showLabel = false }: LanguageToggleProps
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
 
+    const handleToggle = () => {
+        console.log("Before toggle:", language);
+        toggleLanguage();
+        // 注意：由於 toggleLanguage 是非同步的，這裡的 language 不會立即改變
+        console.log("After toggle, but before React re-renders:", language);
+
+        // 使用 setTimeout 來查看下一個渲染週期的值
+        setTimeout(() => {
+            console.log("Next render cycle language:", language);
+        }, 0);
+    };
 
     // Get label text for current theme
     const getLanguageLabel = () => {
@@ -28,7 +39,7 @@ export const LanguageToggle = ({ style, showLabel = false }: LanguageToggleProps
 
     return (
         <TouchableOpacity
-            onPress={toggleLanguage}
+            onPress={handleToggle}
             style={[
                 styles.container,
                 { backgroundColor: isDark ? colors.card : colors.surface },

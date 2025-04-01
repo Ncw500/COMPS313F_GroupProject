@@ -64,9 +64,8 @@ export const SettingPage = () => {
               </View>
               {/* 调整开关位置为右对齐 */}
               <View style={{ justifyContent: 'flex-end', marginRight: 16, marginTop: 5 }}>
-                <LanguageProvider>
+    
                   <LanguageToggle showLabel={true} />
-                </LanguageProvider>
               </View>
             </View>
 
