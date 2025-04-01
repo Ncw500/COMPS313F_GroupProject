@@ -68,18 +68,21 @@ const NearbyStops = () => {
       console.log(`Step 1: Permissions request took ${Date.now() - permissionStartTime} ms`);
 
       if (status !== 'granted') {
-        setLocationError('Location permission denied. Please enable location services to find nearby stops.');
+        setLocationError(t('nearbyStops.locationPermissionDenied'));
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
       console.log('Step 1: Start getting current position');
+      
+      console.log(`❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹Step 1: Getting current position took`);
       const positionStartTime = Date.now();
       const userLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 10000, // 10 seconds
+        timeInterval: 5000, // 5 seconds
       });
+      console.log(`💝💝💝💝💝💝💝💝💝💝Step 1: Getting current position took ${Date.now() - positionStartTime} ms`);
       console.log(`Step 1: Current position coordinates: latitude=${userLocation.coords.latitude.toFixed(6)}, longitude=${userLocation.coords.longitude.toFixed(6)}`);
       setLocation(userLocation);
 
@@ -87,11 +90,9 @@ const NearbyStops = () => {
       console.log('Step 2: Start fetching stops and route stops');
       const fetchStartTime = Date.now();
       const [allStops, allRouteStops] = await Promise.all([
-        retryableFetch(fetchAllStops, 3, 2000),
-        (async () => { // 延迟执行第二个请求防止并发限流
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          return retryableFetch(fetchAllRouteStops, 3, 2000);
-        })()
+        // 调整重试策略：减少重试次数和延迟间隔
+        retryableFetch(fetchAllStops, 2, 1000), // 原参数：3次重试，2000ms间隔
+        retryableFetch(fetchAllRouteStops, 2, 1000)
       ]) as [StopInfo[], RouteStop[]];
 
       console.log(`Step 2: Total fetch took ${Date.now() - fetchStartTime} ms`);
@@ -129,7 +130,7 @@ const NearbyStops = () => {
 
     } catch (error) {
       console.error('Error loading nearby stops:', error);
-      setApiError('An error occurred while loading data. Please try again later.');
+      setApiError(t('nearbyStops.setApiError'));
       setLoading(false);
       setIsLoadingRoutes(false);
       setRefreshing(false);
@@ -203,21 +204,21 @@ const NearbyStops = () => {
 
         if (routeStopError instanceof Error && routeStopError.message.includes('rate limit') && loadingAttempts.current < 2) {
           loadingAttempts.current++;
-          setRouteLoadingError(`API rate limit reached. Retrying in 10 seconds... (Attempt ${loadingAttempts.current}/2)`);
+          setRouteLoadingError(t('nearbyStops.setRouteLoadingError', { loadingAttempts: loadingAttempts.current }));
 
           // Wait and retry after 10 seconds
           setTimeout(() => {
-            setRouteLoadingError(`Retrying to load routes... (Attempt ${loadingAttempts.current}/2)`);
+            setRouteLoadingError(t('nearbyStops.setRouteLoadingErrorRetry', { loadingAttempts: loadingAttempts.current }));
             loadRouteData(stopsWithDistance, allRouteStops);
           }, 10000);
           return;
         }
 
-        setRouteLoadingError("Couldn't load route information due to API rate limits. You can still view the stops.");
+        setRouteLoadingError(t('nearbyStops.setRouteLoadingErrorAPILimit'));
       }
     } catch (error) {
       console.error('Error loading routes:', error);
-      setRouteLoadingError("Couldn't fetch route information. Stops are still available.");
+      setRouteLoadingError(t('nearbyStops.setRouteLoadingErrorFetchError'));
     } finally {
       const duration = Date.now() - startTime;
       console.log('loadRouteData executed in', duration, 'ms');
@@ -279,12 +280,13 @@ const NearbyStops = () => {
         }]}
         onPress={() => navigateToRoute(routeId, bound, serviceType, stop)}
       >
-        <Text style={[styles.routeChipNumber, { color: colors.primary }]}>{routeId}</Text>
+        <Text style={[styles.routeChipNumber, { color: colors.primary }]}>{routeId} / {bound} / {serviceType}</Text>
         <Text style={[styles.routeChipDestination, { color: colors.subText }]} numberOfLines={1}>
           {destination}
         </Text>
       </TouchableOpacity>
     );
+
     const duration = Date.now() - startTime;
     return component;
   };
@@ -298,24 +300,28 @@ const NearbyStops = () => {
         shadowColor: isDark ? 'transparent' : '#000',
       }]}>
         <View style={styles.stopHeader}>
-          <Text style={[styles.stopName, { color: colors.text }]}>{item.name_en}</Text>
+          <View style={styles.stopIconContainer}>
+            <Text style={[styles.stopName, { color: colors.text }]}>{t('nearbyStopsChips.stopNameMain', { stopName: item })}</Text>
+            <Text style={[styles.stopNameLocal, { color: colors.subText }]}>{t('nearbyStopsChips.stopNameSub', { stopName: item })}</Text>
+          </View>
+
           <View style={[styles.distanceBadge, { backgroundColor: colors.primary }]}>
             <MaterialIcons name="near-me" size={14} color="#FFF" />
             <Text style={styles.distanceText}>{formatDistance(item.distance)}</Text>
           </View>
         </View>
-        <Text style={[styles.stopNameLocal, { color: colors.subText }]}>{item.name_tc}</Text>
+
 
         {isLoadingRoutes && !item.routes && (
           <View style={styles.routeLoadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.routeLoadingText, { color: colors.subText }]}>Loading route information...</Text>
+            <Text style={[styles.routeLoadingText, { color: colors.subText }]}>{t('nearbyStops.loadingInfo')}</Text>
           </View>
         )}
 
         {item.routes && item.routes.length > 0 ? (
           <View style={styles.routesContainer}>
-            <Text style={[styles.routesTitle, { color: colors.subText }]}>Routes passing this stop:</Text>
+            <Text style={[styles.routesTitle, { color: colors.subText }]}>{t('nearbyStops.routePassingStops')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -335,15 +341,11 @@ const NearbyStops = () => {
           </View>
         ) : (!isLoadingRoutes && (
           <Text style={[styles.noRoutesText, { color: colors.subText }]}>
-            {routeLoadingError ? 'Route information unavailable due to API limits.' : 'No routes available for this stop.'}
+            {routeLoadingError ? t('nearbyStops.routeLoadingError') : t('nearbyStops.noNearbyStops')}
           </Text>
         ))}
-
-        <Text style={[styles.stopId, { color: colors.subText }]}>Stop ID: {item.stop}</Text>
       </View>
     );
-    const duration = Date.now() - startTime;
-    console.log('renderStopItem executed in', duration, 'ms');
   };
 
   if (locationError) {
@@ -358,7 +360,7 @@ const NearbyStops = () => {
             loadNearbyStops();
           }}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('nearbyStops.locationPermissionRetry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -377,7 +379,7 @@ const NearbyStops = () => {
             loadNearbyStops(true);
           }}
         >
-          <Text style={styles.retryText}>Retry</Text>
+          <Text style={styles.retryText}>{t('nearbyStops.locationPermissionRetry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -387,7 +389,7 @@ const NearbyStops = () => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.subText }]}>Finding nearby bus stops...</Text>
+        <Text style={[styles.loadingText, { color: colors.subText }]}>{t('nearbyStopsChips.loadingText')}</Text>
       </View>
     );
   }
@@ -408,9 +410,9 @@ const NearbyStops = () => {
         }
         ListHeaderComponent={
           <View style={[styles.header, { backgroundColor: colors.card }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Nearby Bus Stops</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t('home.nearbyRoutes')}</Text>
             <Text style={[styles.subtitle, { color: colors.subText }]}>
-              Found {nearbyStops.length} stops within {RADIUS_KM}km
+              {t('routes.nearbyStopsFound', { count: nearbyStops.length, distance: RADIUS_KM })}
             </Text>
             {apiError && (
               <Text style={[styles.errorBanner, {
@@ -429,9 +431,9 @@ const NearbyStops = () => {
         ListEmptyComponent={
           <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
             <MaterialIcons name="location-searching" size={60} color={isDark ? '#555' : '#ccc'} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>No bus stops found nearby</Text>
+            <Text style={[styles.emptyText, { color: colors.text }]}>{t('nearbyStopsChips.noBusStopsFound')}</Text>
             <Text style={[styles.emptySubtext, { color: colors.subText }]}>
-              Try increasing the search radius or moving to a different location
+              {t('nearbyStopsChips.tryIncreasingSearchRadius')}
             </Text>
           </View>
         }
@@ -485,7 +487,7 @@ const styles = StyleSheet.create({
   stopHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+
     marginBottom: 4,
   },
   stopName: {
@@ -511,6 +513,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 12,
+    height: 30,
   },
   distanceText: {
     color: '#fff',
@@ -544,7 +547,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#007AFF',
     fontSize: 14,
-    marginRight: 6,
+
   },
   routeChipDestination: {
     fontSize: 12,
@@ -640,6 +643,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  stopIconContainer: {
+    maxWidth: '70%',
+  }
 });
 
 const retryableFetch = async (func: Function, retries = 3, delay = 1000) => {

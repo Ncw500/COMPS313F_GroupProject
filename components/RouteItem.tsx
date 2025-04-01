@@ -4,6 +4,7 @@ import { Route } from '@/types/Interfaces'
 import { Link } from 'expo-router'
 import { useTheme } from '@/context/ThemeContext'
 import { Colors } from '@/styles/theme'
+import { useTranslation } from '@/utils/i18n'
 
 type RouteItemProps = {
   route: Route
@@ -12,6 +13,7 @@ type RouteItemProps = {
 const RouteItem = ({ route }: RouteItemProps) => {
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
   
   return (
     <Link href={`/${(route.route.toString() + "_" + route.bound.toString() + "_" + route.service_type.toString())}`} asChild>
@@ -25,10 +27,10 @@ const RouteItem = ({ route }: RouteItemProps) => {
         ]}>
           <Text style={[styles.routeText, { color: colors.primary }]}>{route.route}</Text>
           <View style={styles.destView}>
-            <Text style={[styles.toText, { color: colors.subText }]}>To </Text>
-            <Text style={[styles.destText, { color: colors.text }]}>{route.dest_en}</Text>
+            <Text style={[styles.toText, { color: colors.subText }]}>{t('routeItem.to')}</Text>
+            <Text style={[styles.destText, { color: colors.text }]}>{t('routeItem.routeDestination', {routeItem: route})}</Text>
           </View>
-          <Text style={[styles.boundText, { color: colors.subText }]}>{route.bound}</Text>
+
         </View>
       </TouchableOpacity>
     </Link >
@@ -44,7 +46,18 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 15,
     paddingBottom: 20,
-    borderWidth: 1,
+  
+    alignItems: "center",
+    paddingHorizontal: 30,
+    marginHorizontal: 15,
+    margin: 5,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    
   },
   routeText: {
     fontSize: 18,
@@ -63,6 +76,7 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     fontWeight: "bold",
     width: 25,
+    marginRight: 5,
   },
   destText: {
     fontSize: 18,

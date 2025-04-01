@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Route } from '@/types/Interfaces';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useTranslation } from '@/utils/i18n';
 
 const SearchPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +25,7 @@ const SearchPage = () => {
   const router = useRouter();
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
 
   const handleSearch = async (query: string) => {
     try {
@@ -66,8 +68,8 @@ const SearchPage = () => {
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
           <View style={styles.headerContent}>
             <View>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>Search Routes</Text>
-              <Text style={[styles.subtitle, { color: colors.subText }]}>Find the route you want to take</Text>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>{t('search.title')}</Text>
+              <Text style={[styles.subtitle, { color: colors.subText }]}>{t('search.subTitle')}</Text>
             </View>
             {/* <ThemeToggle showLabel={true} /> */}
           </View>
@@ -90,7 +92,7 @@ const SearchPage = () => {
               ]}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Enter route number"
+              placeholder={t('search.placeholder')}
               placeholderTextColor={colors.subText}
               autoCorrect={false}
               clearButtonMode="while-editing"
@@ -122,17 +124,26 @@ const SearchPage = () => {
               >
                 <View style={styles.routeNumbnerContainer}>
                   <Text style={[styles.routeNumber, { color: colors.primary }]}>{item.route}</Text>
-                  <Text style={[styles.routeBound, { color: colors.subText }]}>{ (item.bound === "O" ? "Outbound" : "Inbound")}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={[styles.routeBound, { color: colors.subText }]}>{(item.bound === "O" ? t('search.outbound') : t('search.inbound'))}
+
+                    </Text>
+                    {(item.bound !== "O" ? (<Ionicons name="enter-outline" size={18} style={{marginBottom: 4, marginLeft: 4, color: colors.subText}} ></Ionicons>) : (<Ionicons name="exit-outline" size={18} style={{marginBottom: 4, marginLeft: 4, color: colors.subText}} ></Ionicons>))}
+                    
+                  </View>
+
                 </View>
 
                 <View style={styles.routeTextContainer}>
 
                   <Text style={[styles.routeText, { color: colors.text }]}>
-                    {item.orig_en}
+                    {t('search.originRouteName', { route: item })}
                   </Text>
-                  <Text style={[styles.routeText, { color: colors.text, marginHorizontal: 10 }]}>-</Text>
+                  <Text style={[styles.routeText, { color: colors.text, marginHorizontal: 10 }]}>
+                    <Ionicons name="arrow-forward-outline"></Ionicons>
+                  </Text>
                   <Text style={[styles.routeText, { color: colors.text }]}>
-                    {item.dest_en}
+                    {t('search.destinationRouteName', { route: item })}
                   </Text>
                 </View>
               </Pressable>
@@ -142,7 +153,7 @@ const SearchPage = () => {
               <View style={styles.emptyState}>
                 <MaterialIcons name="search" size={40} color={isDark ? '#555' : '#ccc'} />
                 <Text style={[styles.emptyText, { color: colors.subText }]}>
-                  {searchQuery ? 'No routes found' : 'Enter route number to search'}
+                  {searchQuery ? t('search.noResults') : t('search.searchHits')}
                 </Text>
               </View>
             }
@@ -214,10 +225,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
-    width: 40,
+
   },
   routeText: {
     fontSize: 14,
+    fontWeight: 'bold',
   },
   emptyState: {
     marginTop: 40,
@@ -253,9 +265,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
-    marginLeft: 20,
-    
-  
+
   }
 });
 

@@ -3,6 +3,9 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { ETASquence, MergedRouteETA, OriginRouteETA, RouteStop, StopInfo } from '@/types/Interfaces';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from '@/utils/i18n';
+
 
 interface RouteETAListProps {
     id: string;
@@ -33,6 +36,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
     const [initialStopFound, setInitialStopFound] = useState(false);
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
+    const { t } = useTranslation();
 
     useEffect(() => {
         const fetchRouteDetail = async () => {
@@ -53,8 +57,8 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
 
                 if (etaResult.data.service_type === "2")
                     filteredETAData = etaResult.data.filter((item: OriginRouteETA) => {
-                        
-                        
+
+
                         return item.dir === oppositeDir
                     })
                 else
@@ -71,14 +75,14 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                     stopInfoMap[info.stop] = info;
                 });
                 // console.log("🚀 ~ fetchRouteDetail ~ stopResult.data:", stopResult.data)
-                        // console.log("🚀 ~ fetchRouteDetail ~ filteredETAData:", filteredETAData)
-                        // console.log("🚀 ~ fetchRouteDetail ~ stopInfoMap:", stopInfoMap)
+                // console.log("🚀 ~ fetchRouteDetail ~ filteredETAData:", filteredETAData)
+                // console.log("🚀 ~ fetchRouteDetail ~ stopInfoMap:", stopInfoMap)
                 const mergedData = mergeData(filteredETAData, stopResult.data, stopInfoMap);
 
                 setRouteETA(mergedData);
                 // console.log('Final Merged Data:', mergedData);
             } catch (error) {
-                
+
                 console.error('Error fetching route details:', error);
             } finally {
                 setLoading(false);
@@ -92,21 +96,21 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
         // When route ETAs are loaded and we have an initial stop ID
         if (routeETA && initialStopId && !initialStopFound) {
             // Find the route item that contains our stop
-            const stopIndex = routeETA.findIndex(item => 
+            const stopIndex = routeETA.findIndex(item =>
                 item.route_stop?.stop === initialStopId
             );
-            
+
             if (stopIndex !== -1) {
                 // Found the stop, expand it and scroll to it
                 const item = routeETA[stopIndex];
                 const key = generateRouteItemKey(item);
-                
+
                 // Expand this item
                 setExpandedItems(prev => ({
                     ...prev,
                     [key]: true
                 }));
-                
+
                 // Scroll to this item with a delay to ensure rendering
                 setTimeout(() => {
                     if (flatListRef.current) {
@@ -116,7 +120,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                             viewPosition: 0.5
                         });
                     }
-                    
+
                     // If we have stop information and onStopSelect, notify parent
                     if (item.stop_info && onStopSelect) {
                         onStopSelect({
@@ -127,7 +131,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                             seq: item.seq
                         });
                     }
-                    
+
                     setInitialStopFound(true);
                 }, 500);
             }
@@ -222,7 +226,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             const handleStopPress = () => {
                 // Toggle expanded state
                 toggleExpand(key);
-                
+
                 // If stop_info exists and has lat/long, notify parent component
                 if (item.stop_info && onStopSelect) {
                     onStopSelect({
@@ -237,31 +241,35 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
 
             return (
                 <View style={[styles.boxes, { borderColor: colors.border }]}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         onPress={handleStopPress}
                         style={[
-                            styles.routeTitleRow, 
+                            styles.routeTitleRow,
                             styles.routeTitleTouchable,
-                            { 
+                            {
                                 borderColor: colors.border,
-                                backgroundColor: isExpanded ? colors.surface : colors.card
+                                backgroundColor: isExpanded ? "#F3F3F4" : colors.card
                             }
-                        ]}
-                    >
-                        <Text style={[styles.routeTitle, { color: colors.text }]}>{item.seq}. </Text>
-                        <Text style={[styles.routeTitle, { color: colors.text }]}>{item.stop_info?.name_en}</Text>
-                        <View style={[styles.viewOnMapButton, { backgroundColor: colors.primary }]}>
-                            <Text style={styles.viewOnMapText}>View on Map</Text>
+                        ]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={[styles.routeTitle, { color: colors.text, width: 30 }]}>{item.seq}. </Text>
+                            <View style={{ width: '80%' }}>
+                                <Text style={[styles.routeTitle, { color: colors.text }]}>{t('routeETA.itemStopName', { stopName: item.stop_info})}</Text>
+                            </View>
+
                         </View>
+                        {!isExpanded ? (<Ionicons name="chevron-down-outline" size={22} />) : <Ionicons name="chevron-up-outline" size={22} />}
+                
+
                     </TouchableOpacity>
                     {isExpanded && (
                         <FlatList
                             data={item.eta_seq_list}
                             renderItem={renderETAItem}
                             keyExtractor={(etaItem) => generateETAItemKey(etaItem, item)}
-                            style={{ 
-                                marginTop: 10, 
-                                marginBottom: 10, 
+                            style={{
+                                marginTop: 10,
+                                marginBottom: 10,
                                 backgroundColor: colors.card
                             }}
                         />
@@ -304,19 +312,19 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             const target = new Date(eta);
             const difference = target.getTime() - now.getTime();
 
-            if (difference < 0) return 'Expired';
+            if (difference < 0) return t('routeETA.expired');
 
             const totalMinutes = Math.floor(difference / 1000 / 60);
             const hours = Math.floor(totalMinutes / 60);
             const minutes = totalMinutes % 60;
 
             let result = [];
-            if (hours > 0) result.push(`${hours} hrs`);
-            if (minutes > 0 || hours === 0) result.push(`${minutes} min`);
+            if (hours > 0) result.push(`${hours} ${t('routeETA.hrs')}`);
+            if (minutes > 0 || hours === 0) result.push(`${minutes} ${t('routeETA.min')}`);
 
-            return result.join(' ') || 'Arriving';
+            return result.join(' ') || t('routeETA.Arriving');
         } catch (error) {
-            return 'Invalid time';
+            return t('routeETA.invalidTime');
         }
     };
 
@@ -349,15 +357,15 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={{ marginTop: 10, color: colors.subText }}>Loading...</Text>
+                <Text style={{ marginTop: 10, color: colors.subText }}>{t('routeETA.loadingRoutesETA')}</Text>
             </View>
         );
     }
 
     return (
-        <View style={[styles.container, { 
+        <View style={[styles.container, {
             backgroundColor: colors.background,
-            borderColor: colors.border 
+            borderColor: colors.border
         }]}>
             <FlatList
                 ref={flatListRef}
@@ -371,9 +379,9 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                     // Handle the error, maybe with a setTimeout to try again
                     setTimeout(() => {
                         if (flatListRef.current && routeETA && routeETA.length > 0) {
-                            flatListRef.current.scrollToIndex({ 
+                            flatListRef.current.scrollToIndex({
                                 index: Math.min(info.index, routeETA.length - 1),
-                                animated: true 
+                                animated: true
                             });
                         }
                     }, 100);
@@ -388,16 +396,19 @@ export default RouteETAList;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        width: '100%',
-        borderTopWidth: 1,
-        borderColor: "#bdbbb5",
+        
     },
     routeTitleRow: {
         flexDirection: 'row',
         padding: 15,
         paddingBottom: 20,
-        borderWidth: 1,
-        borderColor: '#bdbbb5',
+        margin: 5,
+        borderRadius: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
     },
     routeTitle: {
         fontSize: 16,
@@ -408,6 +419,7 @@ const styles = StyleSheet.create({
     },
     boxes: {
         borderColor: "#bdbbb5",
+
     },
     etaSeq: {
         flexDirection: 'row',
@@ -432,7 +444,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingHorizontal: 10,
     },
-    
+
     numberText: {
         color: '#007AFF',
     },
@@ -440,17 +452,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-    },
-    viewOnMapButton: {
-        marginLeft: 'auto',
-        backgroundColor: '#007AFF',
-        borderRadius: 12,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
+
     },
     viewOnMapText: {
         color: 'white',
         fontSize: 12,
         fontWeight: '600',
-    }
+    },
 });

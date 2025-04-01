@@ -5,6 +5,7 @@ import MapComponent from '@/components/MapComponent';
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
+import { useTranslation } from '@/utils/i18n';
 
 interface StopLocation {
     stopId: string;
@@ -29,6 +30,7 @@ const RouteDetailPage = () => {
     const [selectedStop, setSelectedStop] = useState<StopLocation | null>(null);
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
+    const { t } = useTranslation();
     
     // Parse the route ID format (e.g., "1_O_1" to separate components)
     const splitId = (id: string) => {
@@ -93,9 +95,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     mapViewContainer: {
-        height: "50%",
+        height: "55%",
     },
     routeETAListContainer: {
-        height: "50%",
+        height: "45%",
+        paddingTop: 10,
+        borderTopWidth: 2,
+        borderColor: "#bdbbb5",
     }
 });

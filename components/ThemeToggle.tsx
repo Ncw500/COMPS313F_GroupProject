@@ -3,6 +3,7 @@ import { TouchableOpacity, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, ThemeMode } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
+import { useTranslation } from '@/utils/i18n';
 
 interface ThemeToggleProps {
   style?: any;
@@ -12,6 +13,7 @@ interface ThemeToggleProps {
 export const ThemeToggle = ({ style, showLabel = false }: ThemeToggleProps) => {
   const { theme, toggleTheme, isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
 
   // Determine icon based on current theme
   const getThemeIcon = () => {
@@ -31,13 +33,11 @@ export const ThemeToggle = ({ style, showLabel = false }: ThemeToggleProps) => {
   const getThemeLabel = () => {
     switch (theme) {
       case 'light':
-        return 'Light';
+        return 'light';
       case 'dark':
-        return 'Dark';
+        return 'dark';
       case 'system':
-        return 'Auto';
-      default:
-        return 'Light';
+        return 'system';
     }
   };
 
@@ -53,7 +53,7 @@ export const ThemeToggle = ({ style, showLabel = false }: ThemeToggleProps) => {
       <Ionicons name={getThemeIcon()} size={22} color={colors.primary} />
       {showLabel && (
         <Text style={[styles.label, { color: colors.text }]}>
-          {getThemeLabel()}
+          {t(`settings.themeMode.${getThemeLabel()}`)}
         </Text>
       )}
     </TouchableOpacity>

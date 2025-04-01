@@ -8,26 +8,25 @@ import { Colors } from "@/styles/theme";
 import { useTranslation } from '@/utils/i18n';
 
 export default function HomePage() {
-  const router = useRouter();
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const router = useRouter();
   const { t } = useTranslation();
-
+  
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerContent}>
             <View>
               <Text style={[styles.title, { color: colors.text }]}>{t('home.title')}</Text>
               <Text style={[styles.subtitle, { color: colors.subText }]}>{t('home.subtitle')}</Text>
             </View>
-            {/* <ThemeToggle showLabel={true} /> */}
           </View>
         </View>
         
         <View style={styles.nearbyContainer}>
-         
+
           <NearbyStops />
         </View>
       </View>

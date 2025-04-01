@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
 import { StyleSheet, View, Text, Platform, ActivityIndicator, Alert } from 'react-native';
-import MapView, { Marker, Callout, Polyline, Region, MapStyleElement } from 'react-native-maps';
+import MapView, { Marker, Callout, Polyline, Region, MapStyleElement, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Entypo } from '@expo/vector-icons';
 import { RouteStop, StopInfo } from '@/types/Interfaces';
 import { fetchDirectionsPath, fetchDirectionsPathWithBackup } from '@/utils/api';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
+import { useTranslation } from '@/utils/i18n';
 
 interface StopLocation {
   stopId: string;
@@ -248,6 +249,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
   const [mapProviderError, setMapProviderError] = useState(false);
+  const { t } = useTranslation();
 
   // Handle when a stop is selected from the ETA list
   useEffect(() => {
@@ -645,7 +647,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
   const getMapProvider = () => {
     console.log(`Entering getMapProvider at ${new Date().toISOString()}`);
     try {
-      return Platform.OS === 'android' ? 'google' : undefined;
+      return Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined;
     } catch (error) {
       console.error('Error determining map provider:', error);
       setMapProviderError(true);
@@ -660,7 +662,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
         <View style={[styles.loadingContainer, { backgroundColor: colors.loadingBackground }]}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.subText }]}>
-            {isLoading ? 'Loading to map...' : 'Loading the route line...'}
+            {isLoading ? t('mapComponent.loadingMap') : t('mapComponent.loadingRouteLine')}
           </Text>
         </View>
       )}
@@ -671,6 +673,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
         initialRegion={region}
         provider={getMapProvider()} // Don't directly use PROVIDER_GOOGLE constant which may be undefined
         showsUserLocation={true}
+        showsMyLocationButton={true}
         showsTraffic={false}
         customMapStyle={isDark ? darkMapStyle : []}
         onMapReady={() => {
@@ -690,29 +693,18 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
                 latitude: parseFloat(stop.lat),
                 longitude: parseFloat(stop.long)
               }}
-              title={`${stop.seq || ''} ${stop.name_en}`}
+              onPress={() => {
+                setActiveMarkerId(stop.stop);
+                focusOnStop({
+                  stopId: stop.stop,
+                  latitude: parseFloat(stop.lat),
+                  longitude: parseFloat(stop.long),
+                  stopName: stop.name_en,
+                  seq: stop.seq || 1
+                });
+              }}
             >
-              <View style={styles.markerContainer}>
-                <View style={[
-                  styles.markerCircle,
-                  { backgroundColor: isActive ? colors.mapMarkerActive : colors.mapMarker },
-                  isActive && styles.markerCircleActive
-                ]}>
-                  <Text style={styles.markerText}>{stop.seq || index + 1}</Text>
-                </View>
-                <Entypo
-                  name="location-pin"
-                  size={24}
-                  color={isActive ? colors.primary : colors.secondary}
-                />
-              </View>
-              <Callout>
-                <View style={[styles.calloutContainer, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.calloutTitle, { color: colors.text }]}>{stop.name_en}</Text>
-                  <Text style={[styles.calloutSubtitle, { color: colors.subText }]}>{stop.name_tc}</Text>
-                  {stop.seq && <Text style={[styles.calloutSequence, { color: colors.primary }]}>Stop #{stop.seq}</Text>}
-                </View>
-              </Callout>
+             
             </Marker>
           );
         })}

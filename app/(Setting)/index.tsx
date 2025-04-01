@@ -6,11 +6,13 @@ import { useRouter } from 'expo-router';
 import { useTheme } from "@/context/ThemeContext";
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { LanguageProvider } from '@/context/LanguageContext';
+import { useTranslation } from '@/utils/i18n';
 
 export const SettingPage = () => {
   const router = useRouter();
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
 
   return (
 
@@ -19,8 +21,8 @@ export const SettingPage = () => {
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
           <View style={styles.headerContent}>
             <View>
-              <Text style={[styles.title, { color: colors.text }]}>Setting</Text>
-              <Text style={[styles.subtitle, { color: colors.subText }]}>Customize your app settings</Text>
+              <Text style={[styles.title, { color: colors.text }]}>{t('settings.title')}</Text>
+              <Text style={[styles.subtitle, { color: colors.subText }]}>{t('settings.subTitle')}</Text>
             </View>
 
           </View>
@@ -38,7 +40,7 @@ export const SettingPage = () => {
               }
             ]}>
               <View style={styles.settingItemTitleContainer}>
-                <Text style={[styles.settingItemTitle, { color: colors.text }]}>System Theme</Text>
+                <Text style={[styles.settingItemTitle, { color: colors.text }]}>{t('settings.theme')}</Text>
               </View>
               {/* 调整开关位置为右对齐 */}
               <View style={{ justifyContent: 'flex-end', marginRight: 16, marginTop: 5 }}>
@@ -60,7 +62,7 @@ export const SettingPage = () => {
               }
             ]}>
               <View style={styles.settingItemTitleContainer}>
-                <Text style={[styles.settingItemTitle, { color: colors.text }]}>Language</Text>
+                <Text style={[styles.settingItemTitle, { color: colors.text }]}>{t('settings.language')}</Text>
               </View>
               {/* 调整开关位置为右对齐 */}
               <View style={{ justifyContent: 'flex-end', marginRight: 16, marginTop: 5 }}>

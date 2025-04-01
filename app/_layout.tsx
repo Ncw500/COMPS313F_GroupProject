@@ -5,12 +5,13 @@ import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { StatusBar, useColorScheme, Platform } from "react-native";
 import { Colors } from "@/styles/theme";
 import { LanguageProvider } from "@/context/LanguageContext";
-
+import { useTranslation } from "@/utils/i18n";
 
 // Tabs wrapper with theme support
 function TabsWrapper() {
   const { isDark } = useTheme();
   const colors = isDark ? Colors.dark : Colors.light;
+  const { t } = useTranslation();
 
   useEffect(() => {
     // Update status bar style
@@ -33,14 +34,14 @@ function TabsWrapper() {
       <Tabs.Screen
         name="(Home)"
         options={{
-          title: "Home",
+          title: t('home.index'),
           tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="(Routes)"
         options={{
-          title: "All Routes",
+          title: t('routes.index'),
           tabBarIcon: ({ color }) => <FontAwesome5 name="bus" size={20} color={color} />,
         }}
       />
@@ -48,7 +49,7 @@ function TabsWrapper() {
       <Tabs.Screen
         name="(Search)"
         options={{
-          title: "Search",
+          title: t('search.index'),
           tabBarIcon: ({ color }) => <Ionicons name="search-outline" size={24} color={color} />,
         }}
       />
@@ -61,7 +62,7 @@ function TabsWrapper() {
       <Tabs.Screen
         name="(Setting)"
         options={{
-          title: "Setting",
+          title: t('settings.index'),
           tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={24} color={color} />,
         }}
       />
