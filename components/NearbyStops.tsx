@@ -86,8 +86,12 @@ const NearbyStops = () => {
       const fetchStartTime = Date.now();
       const [allStops, allRouteStops] = await Promise.all([
         retryableFetch(fetchAllStops, 3, 2000),
-        retryableFetch(fetchAllRouteStops, 3, 2000)
-      ]) as [StopInfo[], RouteStop[]]; // 明确指定类型
+        (async () => { // 延迟执行第二个请求防止并发限流
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          return retryableFetch(fetchAllRouteStops, 3, 2000);
+        })()
+      ]) as [StopInfo[], RouteStop[]];
+
       console.log(`Step 2: Total fetch took ${Date.now() - fetchStartTime} ms`);
   
       // 计算距离并过滤附近站点
@@ -636,16 +640,13 @@ const styles = StyleSheet.create({
   },
 });
 
-const retryableFetch = async (func: Function, maxRetries: number, delayMs: number) => {
-  for (let retry = 0; retry < maxRetries; retry++) {
+const retryableFetch = async (func: Function, retries=3, delay=1000) => {
+  for (let i=0; i<retries; i++) {
     try {
       return await func();
-    } catch (error) {
-      if (retry < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, retry)));
-      } else {
-        throw error;
-      }
+    } catch (e) {
+      await new Promise(resolve => setTimeout(resolve, delay*(i+1)));
     }
   }
+  throw new Error('Retry failed');
 };

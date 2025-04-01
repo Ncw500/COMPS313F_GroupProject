@@ -20,7 +20,7 @@ export default function HomePage() {
               <Text style={[styles.title, { color: colors.text }]}>Bus App</Text>
               <Text style={[styles.subtitle, { color: colors.subText }]}>Find your next bus easily</Text>
             </View>
-            <ThemeToggle showLabel={true} />
+            {/* <ThemeToggle showLabel={true} /> */}
           </View>
         </View>
         
@@ -36,7 +36,6 @@ export default function HomePage() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: StatusBar.currentHeight || 0
   },
   container: {
     flex: 1,

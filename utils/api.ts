@@ -1,6 +1,10 @@
 import { LatLng, Route, RouteStop, StopInfo, PathCacheItem } from '@/types/Interfaces';
 import { decode } from '@mapbox/polyline';
-import { GOOGLE_API_KEY } from '@env';
+import Constants from 'expo-constants';
+
+const GOOGLE_API_KEY = Constants.expoConfig?.extra?.GOOGLE_API_KEY;
+// console.log("🚀 ~ Constants expoConfig.:", GOOGLE_API_KEY)
+
 
 /**
  * 解码Polyline编码的路径
@@ -23,58 +27,43 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 /**
  * Fetch with caching and retry
  */
-const fetchWithCache = async (url: string, cacheKey: string, maxRetries = 2): Promise<any> => {
-  const startTime = Date.now();
-  console.log("Starting API call:", url);
-  
-  // Check cache first
+
+/**
+ * Fetch with caching and retry
+ */
+const fetchWithCache = async (
+  url: string,
+  cacheKey: string,
+  maxRetries = 3,
+  cacheDuration = CACHE_DURATION
+): Promise<any> => {
   const now = Date.now();
-  if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < CACHE_DURATION) {
-    console.log(`Using cached data for ${cacheKey}`);
+  if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < cacheDuration) {
     return cache[cacheKey].data;
   }
-  
-  // If not in cache or expired, fetch with retry logic
+
   let retries = 0;
   while (retries <= maxRetries) {
     try {
-      console.log(`Fetching ${url} (attempt ${retries + 1})`);
       const response = await fetch(url);
-      
-      if (response.status === 403) {
-        throw new Error('API rate limit reached. Wait a few minutes and try again.');
+      if (response.status === 429 || response.status === 403) { // 处理限流状态码
+        throw new Error('API rate limit reached');
       }
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       const result = await response.json();
-      
-      // Cache the successful response
-      cache[cacheKey] = {
-        data: result.data,
-        timestamp: now
-      };
-      
-      console.log(`API call completed: ${url} took ${Date.now() - startTime}ms`);
+      cache[cacheKey] = { data: result.data, timestamp: now };
       return result.data;
     } catch (error) {
       retries++;
-      
-      if (retries <= maxRetries && error instanceof Error && error.message.includes('403')) {
-        console.log(`Rate limited, waiting before retry ${retries}...`);
-        // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, retries * 2000));
-      } else if (retries > maxRetries) {
-        console.error(`Failed to fetch ${url} after ${maxRetries} retries`);
-        throw error;
+      if (error instanceof Error && error.message.includes('rate limit')) { // 类型守卫
+        const backoff = Math.pow(2, retries) * 1000 + (retries * 500); // 增加线性退避
+        await new Promise(resolve => setTimeout(resolve, backoff));
       } else {
-        // For other errors, don't retry
         throw error;
       }
     }
   }
+  throw new Error('Max retries exceeded');
 };
 
 /**
@@ -99,21 +88,15 @@ export const fetchAllRoutes = async (): Promise<Route[]> => {
  */
 export const fetchAllStops = async (): Promise<StopInfo[]> => {
   const startTime = Date.now();
-  console.log("Starting fetchAllStops");
+  const EXTENDED_CACHE_DURATION = 15 * 60 * 1000;
   
   try {
-    console.log('Fetching all stops...');
-    const EXTENDED_CACHE_DURATION = 15 * 60 * 1000; // 15分钟
-    const now = Date.now();
-    const cacheKey = 'all_stops';
-    
-    if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < EXTENDED_CACHE_DURATION) {
-      console.log(`Using cached stop data from memory cache`);
-      return cache[cacheKey].data;
-    }
-    
-    const result = await fetchWithCache(`${API_BASE_URL}/stop`, 'all_stops', 3); // 增加重试次数
-    console.log(`fetchAllStops completed in ${Date.now() - startTime}ms with ${result.length} stops`);
+    const result = await fetchWithCache(
+      `${API_BASE_URL}/stop`,
+      'all_stops',
+      3,
+      EXTENDED_CACHE_DURATION
+    );
     return result;
   } catch (error) {
     console.error(`fetchAllStops failed after ${Date.now() - startTime}ms`, error);
@@ -140,65 +123,14 @@ export const fetchStopInfo = async (stopId: string): Promise<StopInfo> => {
  */
 export const fetchAllRouteStops = async (): Promise<RouteStop[]> => {
   const startTime = Date.now();
-  console.log("Starting fetchAllRouteStops");
-  
   try {
-    console.log('Fetching all route-stop mappings...');
-    let routeStops: RouteStop[] = [];
-    // Check memory cache first - extend cache duration for this heavy call
-    const EXTENDED_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
-    const now = Date.now();
-    const cacheKey = 'all_route_stops';
-    
-    if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < EXTENDED_CACHE_DURATION) {
-      console.log(`Using cached route-stop data from memory cache`);
-      return cache[cacheKey].data;
-    }
-    
-    // Try to fetch with retry logic
-    let retry = 0;
-    const maxRetries = 3;
-    
-    while (retry < maxRetries) {
-      try {
-        if (retry > 0) {
-          console.log(`Retry attempt ${retry} for route-stop data...`);
-          // Exponential backoff
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retry) * 1000));
-        }
-        
-        const response = await fetch(`${API_BASE_URL}/route-stop`);
-        
-        if (response.status === 403) {
-          console.warn('API rate limit hit for route-stop data');
-          throw new Error('API rate limit reached. Wait a few minutes and try again.');
-        }
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        // Cache the successful response with extended duration
-        cache[cacheKey] = {
-          data: result.data,
-          timestamp: now
-        };
-        
-        console.log(`Fetched ${result.data.length} route-stop mappings successfully`);
-        return result.data;
-      } catch (error) {
-        retry++;
-        
-        if (retry >= maxRetries) {
-          console.error(`Failed to fetch route-stop data after ${maxRetries} attempts`);
-          throw error;
-        }
-      }
-    }
-    
-    throw new Error('Failed to fetch route-stop data');
+    const result = await fetchWithCache(
+      `${API_BASE_URL}/route-stop`,
+      'all_route_stops',
+      3,
+      20 * 60 * 1000 // 缓存时间延长至20分钟
+    );
+    return result;
   } catch (error) {
     console.error(`fetchAllRouteStops failed after ${Date.now() - startTime}ms`, error);
     throw error;

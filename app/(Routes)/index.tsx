@@ -52,48 +52,49 @@ export default function AllRoutesScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <View style={[styles.header, { 
-        backgroundColor: colors.card,
-        borderBottomColor: colors.border
-      }]}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerTextContainer}>
-            <Text style={[styles.title, { color: colors.text }]}>All Bus Routes</Text>
-            <Text style={[styles.subtitle, { color: colors.subText }]}>{routes.length} routes available</Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+          <View style={styles.headerContent}>
+            <View >
+              <Text style={[styles.title, { color: colors.text }]}>All Bus Routes</Text>
+              <Text style={[styles.subtitle, { color: colors.subText }]}>There are "{routes.length}" routes available</Text>
+            </View>
+            {/* <ThemeToggle showLabel={true} /> */}
           </View>
-          <ThemeToggle />
         </View>
+
+        {loading && !refreshing ? (
+          <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.subText }]}>Loading routes...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={routes.slice(0, renderCount)}
+            renderItem={renderItem}
+            keyExtractor={generateKey}
+            onEndReached={onEndReached}
+            onEndReachedThreshold={0.5}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            }
+            style={{ backgroundColor: colors.background }}
+          />
+        )}
       </View>
-      
-      {loading && !refreshing ? (
-        <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.subText }]}>Loading routes...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={routes.slice(0, renderCount)}
-          renderItem={renderItem}
-          keyExtractor={generateKey}
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.5}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-          style={{ backgroundColor: colors.background }}
-        />
-      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -110,11 +111,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     marginTop: 4,
   },
   loadingContainer: {
