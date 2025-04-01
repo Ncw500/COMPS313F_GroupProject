@@ -46,10 +46,10 @@ export const ThemeToggle = ({ style, showLabel = false }: ThemeToggleProps) => {
       onPress={toggleTheme} 
       style={[
         styles.container, 
-        { backgroundColor: isDark ? colors.card : colors.surface },
+        { backgroundColor: isDark ? colors.cardButton : colors.cardButton },
         style
       ]}
-    >
+>
       <Ionicons name={getThemeIcon()} size={22} color={colors.primary} />
       {showLabel && (
         <Text style={[styles.label, { color: colors.text }]}>
@@ -67,6 +67,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+   
   },
   label: {
     fontSize: 14,

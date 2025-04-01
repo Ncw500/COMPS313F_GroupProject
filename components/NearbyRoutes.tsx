@@ -14,6 +14,8 @@ import { StopInfo, Route } from '@/types/Interfaces';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { calculateDistance, formatDistance, fetchAllStops, fetchAllRouteStops, fetchAllRoutes } from '@/utils/api';
+import { Colors } from '@/styles/theme';
+import { useTheme } from '@/context/ThemeContext';
 
 interface NearbyStop extends StopInfo {
   distance: number; // Distance in meters from user
@@ -33,6 +35,8 @@ const NearbyRoutes = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const router = useRouter();
+  const { theme, toggleTheme, isDark } = useTheme();
+  const colors = isDark ? Colors.dark : Colors.light;
 
   // Function to load data
   const loadNearbyRoutes = async (forceRefresh = false) => {

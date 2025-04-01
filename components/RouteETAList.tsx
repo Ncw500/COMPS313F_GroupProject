@@ -226,7 +226,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             const stopNameKey = t('common.appName').includes('香港交通') ? 'name_tc' : 'name_en';
             const stopName = item.stop_info?.[stopNameKey] || 'N/A';
 
-            
+
 
             // Handler for when a stop is pressed
             const handleStopPress = () => {
@@ -246,7 +246,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             };
 
             return (
-                <View style={[styles.boxes, { borderColor: colors.border }]}>
+                <View style={[styles.boxes, { borderColor: colors.border, backgroundColor: colors.background }]}>
                     <TouchableOpacity
                         onPress={handleStopPress}
                         style={[
@@ -254,7 +254,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                             styles.routeTitleTouchable,
                             {
                                 borderColor: colors.border,
-                                backgroundColor: isExpanded ? "#F3F3F4" : colors.card
+                                backgroundColor: isExpanded ? colors.cardButton : colors.card
                             }
                         ]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -264,19 +264,21 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                                 <Text style={[styles.routeTitle, { color: colors.text }]}>{t('routeETA.itemStopName', { stopName })}</Text>
                             </View>
                         </View>
-                        {!isExpanded ? (<Ionicons name="chevron-down-outline" size={22} />) : <Ionicons name="chevron-up-outline" size={22} />}
-                </TouchableOpacity>
+                        {!isExpanded ? (<Ionicons name="chevron-down-outline" size={22} color={colors.text} />) : <Ionicons name="chevron-up-outline" size={22} />}
+                    </TouchableOpacity>
                     {isExpanded && (
-                        <FlatList
-                            data={item.eta_seq_list}
-                            renderItem={renderETAItem}
-                            keyExtractor={(etaItem) => generateETAItemKey(etaItem, item)}
-                            style={{
-                                marginTop: 10,
-                                marginBottom: 10,
-                                backgroundColor: colors.card
-                            }}
-                        />
+                        <View >
+                            <FlatList
+                                data={item.eta_seq_list}
+                                renderItem={renderETAItem}
+                                keyExtractor={(etaItem) => generateETAItemKey(etaItem, item)}
+                                style={{
+                                    marginTop: 10,
+                                    marginBottom: 10,
+                                    backgroundColor: colors.card
+                                }}
+                            />
+                        </View>
                     )}
                 </View>
             );
@@ -286,12 +288,12 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
 
     const renderETAItem = useCallback(({ item }: { item: ETASquence }) => {
         return (
-            <View style={[styles.etaSeq, { borderColor: colors.border }]}>
+            <View style={[styles.etaSeq, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <View style={styles.etaStartItem}>
                     <TimeRemaining eta={item.eta} />
                 </View>
                 <Text style={[styles.etaMiddleItem, { color: colors.text }]}> - </Text>
-                <Text style={[styles.etaEndItem, { color: colors.subText }]}>{t('routeETA.itemRemark', {remark: item})}</Text>
+                <Text style={[styles.etaEndItem, { color: colors.subText }]}>{t('routeETA.itemRemark', { remark: item })}</Text>
             </View>
         );
     }, [colors, t]);
@@ -336,7 +338,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
     const TimeRemaining = ({ eta }: TimeRemainingProps) => {
         const { t, currentLanguage } = useTranslation(); // 取得當前語言
         const [remaining, setRemaining] = useState('');
-        
+
         // 使用 useEffect 來計算初始值和監聽語言變化
         useEffect(() => {
             const recalculate = () => {
@@ -349,7 +351,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             const interval = setInterval(recalculate, 60000);
             return () => clearInterval(interval);
         }, [eta, t, currentLanguage]); // 添加currentLanguage监听语言切换
-    
+
         const renderColoredTime = (text: string) => {
             return text.split(/(\d+)/).map((part, i) => {
                 if (/\d+/.test(part)) {
@@ -358,7 +360,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                 return <Text key={i} style={{ color: colors.text }}>{part}</Text>;
             });
         };
-    
+
         return (
             <Text>{renderColoredTime(remaining)}</Text>
         );
@@ -408,7 +410,7 @@ export default RouteETAList;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        
+
     },
     routeTitleRow: {
         flexDirection: 'row',
@@ -421,6 +423,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 2,
+
+
+
     },
     routeTitle: {
         fontSize: 16,
@@ -438,7 +443,8 @@ const styles = StyleSheet.create({
         padding: 12,
         borderColor: '#bdbbb5',
         alignItems: 'center',
-        marginLeft: 20,
+        paddingLeft: 20,
+        
 
     },
     etaStartItem: {
@@ -446,6 +452,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 10,
         width: 80,
+
     },
     etaMiddleItem: {
         textAlign: 'center',
@@ -470,5 +477,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 12,
         fontWeight: '600',
+
     },
 });

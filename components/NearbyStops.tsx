@@ -275,7 +275,7 @@ const NearbyStops = () => {
     const component = (
       <TouchableOpacity
         style={[styles.routeChip, {
-          backgroundColor: isDark ? colors.card : '#f0f0f0',
+          backgroundColor: colors.cardButton,
         }]}
         onPress={() => navigateToRoute(routeId, bound, serviceType, stop)}
       >

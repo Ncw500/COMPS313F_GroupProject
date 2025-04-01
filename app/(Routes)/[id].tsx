@@ -102,5 +102,6 @@ const styles = StyleSheet.create({
         paddingTop: 10,
         borderTopWidth: 2,
         borderColor: "#bdbbb5",
+        
     }
 });

@@ -42,7 +42,7 @@ export const LanguageToggle = ({ style, showLabel = false }: LanguageToggleProps
             onPress={handleToggle}
             style={[
                 styles.container,
-                { backgroundColor: isDark ? colors.card : colors.surface },
+                { backgroundColor: isDark ? colors.cardButton : colors.cardButton },
                 style
             ]}
         >
