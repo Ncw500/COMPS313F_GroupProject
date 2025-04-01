@@ -1,8 +1,9 @@
 import { StyleSheet, View } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
-import RouteETAList from '@/components/RouteETAList';
+import RouteETAList from '../../components/RouteETAList';
 import MapComponent from '@/components/MapComponent';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '@/utils/i18n';
 
 interface StopLocation {
     stopId: string;
@@ -25,7 +26,8 @@ const RouteDetailPage = () => {
     
     const mapRef = useRef(null);
     const [selectedStop, setSelectedStop] = useState<StopLocation | null>(null);
-    
+    const { t } = useTranslation();
+
     // Parse the route ID format (e.g., "1_O_1" to separate components)
     const splitId = (id: string) => {
         const [routeId, routeBound, routeServiceType] = id.split('_');

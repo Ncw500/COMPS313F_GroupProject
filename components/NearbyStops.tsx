@@ -300,7 +300,7 @@ const NearbyStops = () => {
       }]}>
         <View style={styles.stopHeader}>
           <View style={styles.stopIconContainer}>
-            <Text style={[styles.stopName, { color: colors.text }]}>{t('nearbyStopsChips.stopNameMain', { stopName: item })}</Text>
+            <Text style={[styles.stopName, { color: colors.text, marginBottom: 5 }]}>{t('nearbyStopsChips.stopNameMain', { stopName: item })}</Text>
             <Text style={[styles.stopNameLocal, { color: colors.subText }]}>{t('nearbyStopsChips.stopNameSub', { stopName: item })}</Text>
           </View>
 

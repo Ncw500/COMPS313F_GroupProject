@@ -4,7 +4,7 @@ import { ETASquence, MergedRouteETA, OriginRouteETA, RouteStop, StopInfo } from 
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from '@/utils/i18n';
+import { useTranslation } from '@/utils/i18n'; // 确保正确导入翻译钩子
 
 
 interface RouteETAListProps {
@@ -36,7 +36,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
     const [initialStopFound, setInitialStopFound] = useState(false);
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
-    const { t } = useTranslation();
+    const { t } = useTranslation(); // 组件顶层获取翻译函数
 
     useEffect(() => {
         const fetchRouteDetail = async () => {
@@ -222,6 +222,12 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
             const key = generateRouteItemKey(item);
             const isExpanded = expandedItems[key];
 
+            // 新增：将stopNameKey计算移到useCallback内部并依赖t
+            const stopNameKey = t('common.appName').includes('香港交通') ? 'name_tc' : 'name_en';
+            const stopName = item.stop_info?.[stopNameKey] || 'N/A';
+
+            
+
             // Handler for when a stop is pressed
             const handleStopPress = () => {
                 // Toggle expanded state
@@ -254,14 +260,12 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Text style={[styles.routeTitle, { color: colors.text, width: 30 }]}>{item.seq}. </Text>
                             <View style={{ width: '80%' }}>
-                                <Text style={[styles.routeTitle, { color: colors.text }]}>{t('routeETA.itemStopName', { stopName: item.stop_info})}</Text>
+                                {/* 修正：将stopName参数改为字符串 */}
+                                <Text style={[styles.routeTitle, { color: colors.text }]}>{t('routeETA.itemStopName', { stopName })}</Text>
                             </View>
-
                         </View>
                         {!isExpanded ? (<Ionicons name="chevron-down-outline" size={22} />) : <Ionicons name="chevron-up-outline" size={22} />}
-                
-
-                    </TouchableOpacity>
+                </TouchableOpacity>
                     {isExpanded && (
                         <FlatList
                             data={item.eta_seq_list}
@@ -277,7 +281,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                 </View>
             );
         },
-        [expandedItems, onStopSelect, colors, isDark]
+        [expandedItems, onStopSelect, colors, isDark, t] // 确保 t 在依赖数组中
     );
 
     const renderETAItem = useCallback(({ item }: { item: ETASquence }) => {
@@ -287,10 +291,10 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                     <TimeRemaining eta={item.eta} />
                 </View>
                 <Text style={[styles.etaMiddleItem, { color: colors.text }]}> - </Text>
-                <Text style={[styles.etaEndItem, { color: colors.subText }]}>{item.rmk_en}</Text>
+                <Text style={[styles.etaEndItem, { color: colors.subText }]}>{t('routeETA.itemRemark', {remark: item})}</Text>
             </View>
         );
-    }, [colors]);
+    }, [colors, t]);
 
     const generateRouteItemKey = (item: MergedRouteETA) => {
         return `${item.route}_${item.dir}_${item.seq}_${item.service_type}`;
@@ -306,38 +310,46 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
         }));
     };
 
-    const calculateTimeRemaining = (eta: string) => {
+    // 修改 calculateTimeRemaining 接受 t 函数作为参数
+    function calculateTimeRemaining(eta: string, t: (key: string, params?: any) => string) {
         try {
             const now = new Date();
             const target = new Date(eta);
+            if (isNaN(target.getTime())) {
+                return t('routeETA.invalidTime');
+            }
             const difference = target.getTime() - now.getTime();
-
             if (difference < 0) return t('routeETA.expired');
-
             const totalMinutes = Math.floor(difference / 1000 / 60);
             const hours = Math.floor(totalMinutes / 60);
             const minutes = totalMinutes % 60;
-
             let result = [];
             if (hours > 0) result.push(`${hours} ${t('routeETA.hrs')}`);
             if (minutes > 0 || hours === 0) result.push(`${minutes} ${t('routeETA.min')}`);
-
-            return result.join(' ') || t('routeETA.Arriving');
+            return result.length > 0 ? result.join(' ') : t('routeETA.arriving');
         } catch (error) {
             return t('routeETA.invalidTime');
         }
-    };
+    }
 
+    // 修改 TimeRemaining 组件，将 t 作为依赖项
     const TimeRemaining = ({ eta }: TimeRemainingProps) => {
-        const [remaining, setRemaining] = useState(() => calculateTimeRemaining(eta));
-
+        const { t, currentLanguage } = useTranslation(); // 取得當前語言
+        const [remaining, setRemaining] = useState('');
+        
+        // 使用 useEffect 來計算初始值和監聽語言變化
         useEffect(() => {
-            const interval = setInterval(() => {
-                setRemaining(calculateTimeRemaining(eta));
-            }, 60000);
-            return () => clearInterval(interval);
-        }, [eta]);
+            const recalculate = () => {
+                const newRemaining = calculateTimeRemaining(eta, t);
+                setRemaining(newRemaining);
+            };
 
+            recalculate(); // 初始化计算
+
+            const interval = setInterval(recalculate, 60000);
+            return () => clearInterval(interval);
+        }, [eta, t, currentLanguage]); // 添加currentLanguage监听语言切换
+    
         const renderColoredTime = (text: string) => {
             return text.split(/(\d+)/).map((part, i) => {
                 if (/\d+/.test(part)) {
@@ -346,7 +358,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                 return <Text key={i} style={{ color: colors.text }}>{part}</Text>;
             });
         };
-
+    
         return (
             <Text>{renderColoredTime(remaining)}</Text>
         );

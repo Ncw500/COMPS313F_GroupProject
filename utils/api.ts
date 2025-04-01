@@ -44,19 +44,19 @@ const fetchWithCache = async (
 
   let retries = 0;
   // while (retries <= maxRetries) {
-while (true) {
+  while (true) {
     try {
       const startTime = Date.now();
-      console.log(`🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭Fetching ${url}`);
+      // console.log(`🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭Fetching ${url}`);
       const response = await fetch(url);
       console.log("🚀 ~ response.status:", response.status)
       if (![200, 201].includes(response.status)) {
-        console.log(`🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈fetchWithCache error in ${Date.now() - startTime}ms`);
+        // console.log(`🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈fetchWithCache error in ${Date.now() - startTime}ms`);
         throw new Error(`HTTP error ${response.status}`);
       }
       const result = await response.json();
       cache[cacheKey] = { data: result.data, timestamp: now };
-      console.log(`🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸fetchWithCache completed in ${Date.now() - startTime}ms`);
+      // console.log(`🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸fetchWithCache completed in ${Date.now() - startTime}ms`);
       return result.data;
     } catch (error) {
       // retries++;
@@ -78,7 +78,7 @@ while (true) {
 export const fetchAllRoutes = async (): Promise<Route[]> => {
   const startTime = Date.now();
   console.log("Starting fetchAllRoutes");
-  
+
   try {
     const result = await fetchWithCache(`${API_BASE_URL}/route/`, 'all_routes');
     console.log(`fetchAllRoutes completed in ${Date.now() - startTime}ms with ${result.length} routes`);
@@ -220,12 +220,12 @@ interface DirectionsResult {
  * Fetch directions path between two coordinates using OSRM and Google Maps APIs with logging
  */
 export const fetchDirectionsPath = async (
-  origin: LatLng, 
+  origin: LatLng,
   destination: LatLng
 ): Promise<{ latitude: number; longitude: number }[] | null> => {
   const startTime = Date.now();
   console.log(`--- fetchDirectionsPath START (Total: ${Date.now() - startTime}ms) ---`);
-  
+
   try {
     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=polyline`;
 
@@ -264,28 +264,28 @@ export const fetchDirectionsPath = async (
 // Fallback to using Google Maps Directions API if needed
 // This requires an API key with billing enabled
 export const fetchGoogleDirectionsPath = async (
-  origin: LatLng, 
-  destination: LatLng, 
+  origin: LatLng,
+  destination: LatLng,
   apiKey: string
 ) => {
   try {
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&key=${apiKey}&mode=driving`;
-    
+
     // console.log(`🛑Google Directions API request started, url: ${url}`);
     const response = await fetch(url);
     const result: DirectionsResult = await response.json();
-    
+
     if (!result.routes || result.routes.length === 0) {
       console.log(' Google Paths Faild');
       return null;
     }
-    
+
     // Use the detailed steps polylines for better route accuracy
     const route = result.routes[0];
-    
+
     if (route.legs && route.legs.length > 0) {
       let paths: { latitude: number; longitude: number }[] = [];
-      
+
       for (const leg of route.legs) {
         if (leg.steps) {
           for (const step of leg.steps) {
@@ -299,12 +299,12 @@ export const fetchGoogleDirectionsPath = async (
       // console.log('🛑 Google Paths', paths);
       return paths;
     }
-    
+
     // Fallback to overview polyline if no detailed steps
     if (route.overview_polyline && route.overview_polyline.points) {
       return decodePolyline(route.overview_polyline.points);
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error fetching Google directions:', error);
@@ -317,11 +317,11 @@ const pathCache = new Map<string, PathCacheItem>();
 const cacheTTL = 60 * 60 * 1000; // 1小时
 
 export const fetchDirectionsPathWithBackup = async (
-  origin: LatLng, 
+  origin: LatLng,
   destination: LatLng
 ): Promise<{ latitude: number; longitude: number }[] | null> => {
   const cacheKey = `${origin.lat},${origin.lng}-${destination.lat},${destination.lng}`;
-  
+
   // 检查缓存是否存在且未过期
   const cachedPath = pathCache.get(cacheKey);
   if (cachedPath && Date.now() - cachedPath.timestamp < cacheTTL) {
@@ -335,12 +335,12 @@ export const fetchDirectionsPathWithBackup = async (
     //   pathCache.set(cacheKey, { path: osrmResult, timestamp: Date.now() });
     //   return osrmResult;
     // }
-    
+
     // OSRM失败则尝试Google Maps
     // console.log("✅", GOOGLE_API_KEY);
     const googleResult = await fetchGoogleDirectionsPath(
-      origin, 
-      destination, 
+      origin,
+      destination,
       GOOGLE_API_KEY!
     );
     if (googleResult) {

@@ -265,8 +265,8 @@ const translations = {
   },
   routeETA: {
     itemStopName: {
-      english: '{stopName}.name_en',
-      chinese: '{stopName}.name_tc',
+        english: '{stopName}',
+        chinese: '{stopName}',
     },
     loadingRoutesETA: {
       english: 'Loading route ETA...',
@@ -291,6 +291,10 @@ const translations = {
     hrs: {
       english: 'hrs',
       chinese: '小時',
+    },
+    itemRemark: {
+      english: '{remark}.rmk_en',
+      chinese: '{remark}.rmk_tc',
     }
   },
   mapComponent: {
@@ -306,11 +310,23 @@ const translations = {
   // 可以根據需要添加更多類別
 };
 
+// Hook 版本的翻譯函數，自動獲取當前語言
+export function useTranslation() {
+    const { language } = useLanguage();
+    
+    const t = useCallback((key: string, params?: any) => {
+  
+        return getTranslation(key, language, params);
+    }, [language]);
+    
+    return { t, currentLanguage: language };
+}
+
 // 直接獲取翻譯的函數，需要提供當前語言和可選的參數替換
 export const getTranslation = (
   key: string, 
   language: LanguageMode,
-  params?: Record<string, any> // 使用 any 類型允許接受任何類型的參數
+  params?: Record<string, any>
 ): string => {
   const keys = key.split('.');
   let result: any = translations;
@@ -326,21 +342,23 @@ export const getTranslation = (
   if (typeof result === 'object' && result[language]) {
     let text = result[language];
     
+    // 修改参数替换逻辑处理对象属性访问
+    const propertyRegex = /\{(\w+(?:\.\w+)*)\}\.(\w+)/g;
+    let match;
+    
+    while ((match = propertyRegex.exec(text)) !== null) {
+      const [fullMatch, objectPath, propName] = match;
+      let obj = params;
+      objectPath.split('.').forEach(keyPart => {
+        obj = obj?.[keyPart];
+      });
+      if (obj && typeof obj === 'object' && propName in obj) {
+        text = text.replace(fullMatch, String(obj[propName]));
+      }
+    }
+    
     // 如果有參數，進行替換
     if (params) {
-      // 處理對象屬性訪問，例如 {stopName}.name_en
-      const propertyRegex = /{(\w+)}\.(\w+)/g;
-      let match;
-      
-      while ((match = propertyRegex.exec(text)) !== null) {
-        const [fullMatch, objectKey, propName] = match;
-        const obj = params[objectKey];
-        
-        if (obj && typeof obj === 'object' && propName in obj) {
-          text = text.replace(fullMatch, String(obj[propName]));
-        }
-      }
-      
       // 處理簡單變量替換，例如 {count} -> 5
       Object.entries(params).forEach(([paramKey, paramValue]) => {
         if (typeof paramValue !== 'object') {
@@ -356,23 +374,3 @@ export const getTranslation = (
   return key;
 };
   
-
-// Hook 版本的翻譯函數，自動獲取當前語言
-export const useTranslation = () => {
-  const { language } = useLanguage();
-  const [, forceRender] = useState({});
-  
-  // 監聽語言變化並強制更新
-  useEffect(() => {
-    forceRender({});
-  }, [language]);
-  
-  const t = useCallback(
-    (key: string, params?: Record<string, any>): string => { // 將 params 類型改為接受任意類型
-      return getTranslation(key, language, params);
-    }, 
-    [language]
-  );
-  
-  return { t, language };
-};

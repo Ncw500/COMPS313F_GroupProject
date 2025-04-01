@@ -1,0 +1,14 @@
+// 确保在 renderETAItem 中传递完整的 item 对象作为 remark 参数
+return (
+  <Text style={[styles.etaEndItem, { color: colors.subText }]}>{t('routeETA.itemRemark', { remark: item })}</Text>
+);
+
+// 在 TimeRemaining 组件中添加对 t 的依赖
+const TimeRemaining = ({ eta }: TimeRemainingProps) => {
+  const { t, currentLanguage } = useTranslation();
+  ... existing code ...
+  useEffect(() => {
+    ...
+  }, [eta, t, currentLanguage]); // 确保包含 t 和 currentLanguage
+  ... existing code ...
+}
