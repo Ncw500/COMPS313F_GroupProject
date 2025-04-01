@@ -280,7 +280,6 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
 
     const toggleExpand = (key: string) => {
         setExpandedItems((prev) => ({
-            ...prev,  // This was missing - preserve existing expanded items
             [key]: !prev[key],
         }));
     };

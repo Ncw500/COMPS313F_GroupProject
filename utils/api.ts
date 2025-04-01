@@ -15,6 +15,9 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
  * Fetch with caching and retry
  */
 const fetchWithCache = async (url: string, cacheKey: string, maxRetries = 2): Promise<any> => {
+  const startTime = Date.now();
+  console.log("Starting API call:", url);
+  
   // Check cache first
   const now = Date.now();
   if (cache[cacheKey] && (now - cache[cacheKey].timestamp) < CACHE_DURATION) {
@@ -45,6 +48,7 @@ const fetchWithCache = async (url: string, cacheKey: string, maxRetries = 2): Pr
         timestamp: now
       };
       
+      console.log(`API call completed: ${url} took ${Date.now() - startTime}ms`);
       return result.data;
     } catch (error) {
       retries++;
@@ -68,10 +72,15 @@ const fetchWithCache = async (url: string, cacheKey: string, maxRetries = 2): Pr
  * Fetch all bus routes
  */
 export const fetchAllRoutes = async (): Promise<Route[]> => {
+  const startTime = Date.now();
+  console.log("Starting fetchAllRoutes");
+  
   try {
-    return await fetchWithCache(`${API_BASE_URL}/route/`, 'all_routes');
+    const result = await fetchWithCache(`${API_BASE_URL}/route/`, 'all_routes');
+    console.log(`fetchAllRoutes completed in ${Date.now() - startTime}ms with ${result.length} routes`);
+    return result;
   } catch (error) {
-    console.error('Error fetching all routes:', error);
+    console.error(`fetchAllRoutes failed after ${Date.now() - startTime}ms`, error);
     throw error;
   }
 };
@@ -80,11 +89,16 @@ export const fetchAllRoutes = async (): Promise<Route[]> => {
  * Fetch all bus stops
  */
 export const fetchAllStops = async (): Promise<StopInfo[]> => {
+  const startTime = Date.now();
+  console.log("Starting fetchAllStops");
+  
   try {
     console.log('Fetching all stops...');
-    return await fetchWithCache(`${API_BASE_URL}/stop`, 'all_stops');
+    const result = await fetchWithCache(`${API_BASE_URL}/stop`, 'all_stops');
+    console.log(`fetchAllStops completed in ${Date.now() - startTime}ms with ${result.length} stops`);
+    return result;
   } catch (error) {
-    console.error('Error fetching all stops:', error);
+    console.error(`fetchAllStops failed after ${Date.now() - startTime}ms`, error);
     throw error;
   }
 };
@@ -107,6 +121,9 @@ export const fetchStopInfo = async (stopId: string): Promise<StopInfo> => {
  * Fetch all route-stop mappings
  */
 export const fetchAllRouteStops = async (): Promise<RouteStop[]> => {
+  const startTime = Date.now();
+  console.log("Starting fetchAllRouteStops");
+  
   try {
     console.log('Fetching all route-stop mappings...');
     let routeStops: RouteStop[] = [];
@@ -165,7 +182,7 @@ export const fetchAllRouteStops = async (): Promise<RouteStop[]> => {
     
     throw new Error('Failed to fetch route-stop data');
   } catch (error) {
-    console.error('Error fetching all route-stops:', error);
+    console.error(`fetchAllRouteStops failed after ${Date.now() - startTime}ms`, error);
     throw error;
   }
 };

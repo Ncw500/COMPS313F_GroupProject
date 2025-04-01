@@ -559,7 +559,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       
       return () => clearTimeout(timer);
     }
-  }, [mapReady, routePaths, pathsRendered, region]);
+  }, [mapReady, routePaths, pathsRendered]);
 
   // Calculate the region to display on the map
   const calculateRegion = () => {
@@ -689,10 +689,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
           setIsLoading(false);
           setMapReady(true);
         }}
-        onError={(error) => {
-          console.error('Map error:', error.nativeEvent);
-          setMapError('Failed to load the map. Showing stops list instead.');
-        }}
+       
       >
         {/* Render bus stop markers with unique keys */}
         {routeStops.map((stop, index) => {
