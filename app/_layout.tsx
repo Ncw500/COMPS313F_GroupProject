@@ -57,6 +57,13 @@ function TabsWrapper() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="(Setting)"
+        options={{
+          title: "Setting",
+          tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={24} color={color} />,
+        }}
+      />
       {/* <Tabs.Screen
         name="Search/index"
         options={{

@@ -25,9 +25,7 @@ export default function HomePage() {
         </View>
         
         <View style={styles.nearbyContainer}>
-          <Text style={[styles.sectionTitle, { color: colors.text, backgroundColor: isDark ? colors.surface : '#f5f5f5' }]}>
-            Nearby Stops
-          </Text>
+         
           <NearbyStops />
         </View>
       </View>
