@@ -1,0 +1,11 @@
+// 优化retryableFetch的重试策略（减少重试间隔）
+const retryableFetch = async (func: Function, retries = 3, delay = 500) => { // 将延迟从2000ms改为500ms
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await func();
+    } catch (e) {
+      await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+    }
+  }
+  throw new Error('Retry failed');
+};

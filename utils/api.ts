@@ -21,7 +21,7 @@ const API_BASE_URL = 'https://data.etabus.gov.hk/v1/transport/kmb';
 /**
  * Cache mechanism to reduce API calls
  */
-const cache: { [key: string]: { data: any, timestamp: number } } = {};
+export const cache: { [key: string]: { data: any, timestamp: number } } = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -43,27 +43,33 @@ const fetchWithCache = async (
   }
 
   let retries = 0;
-  while (retries <= maxRetries) {
+  // while (retries <= maxRetries) {
+while (true) {
     try {
+      const startTime = Date.now();
+      console.log(`🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭🐭Fetching ${url}`);
       const response = await fetch(url);
-      if (response.status === 429 || response.status === 403) { // 处理限流状态码
-        throw new Error('API rate limit reached');
+      console.log("🚀 ~ response.status:", response.status)
+      if (![200, 201].includes(response.status)) {
+        console.log(`🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈🙈fetchWithCache error in ${Date.now() - startTime}ms`);
+        throw new Error(`HTTP error ${response.status}`);
       }
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
       const result = await response.json();
       cache[cacheKey] = { data: result.data, timestamp: now };
+      console.log(`🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸🐸fetchWithCache completed in ${Date.now() - startTime}ms`);
       return result.data;
     } catch (error) {
-      retries++;
-      if (error instanceof Error && error.message.includes('rate limit')) { // 类型守卫
-        const backoff = Math.pow(2, retries) * 1000 + (retries * 500); // 增加线性退避
-        await new Promise(resolve => setTimeout(resolve, backoff));
-      } else {
-        throw error;
-      }
+      // retries++;
+      // const backoff = Math.pow(2, retries) * 1000 + (retries * 500); // 指数退避
+      // if (retries < maxRetries) {
+      //   console.log(`Retrying ${url} in ${backoff}ms (Attempt ${retries}/${maxRetries})`);
+      //   await new Promise(resolve => setTimeout(resolve, backoff));
+      // } else {
+      //   throw new Error(`Max retries exceeded for ${url}`);
+      // }
     }
   }
-  throw new Error('Max retries exceeded');
+  throw new Error('Unexpected error');
 };
 
 /**
@@ -88,14 +94,12 @@ export const fetchAllRoutes = async (): Promise<Route[]> => {
  */
 export const fetchAllStops = async (): Promise<StopInfo[]> => {
   const startTime = Date.now();
-  const EXTENDED_CACHE_DURATION = 15 * 60 * 1000;
-  
   try {
     const result = await fetchWithCache(
-      `${API_BASE_URL}/stop`,
-      'all_stops',
-      3,
-      EXTENDED_CACHE_DURATION
+      `${API_BASE_URL}/stop`, // 修复错误的API路径
+      'all_stops_cache_key',
+      5,
+      20 * 60 * 1000
     );
     return result;
   } catch (error) {
@@ -127,7 +131,7 @@ export const fetchAllRouteStops = async (): Promise<RouteStop[]> => {
     const result = await fetchWithCache(
       `${API_BASE_URL}/route-stop`,
       'all_route_stops',
-      3,
+      5,
       20 * 60 * 1000 // 缓存时间延长至20分钟
     );
     return result;

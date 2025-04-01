@@ -1,0 +1,10 @@
+// 添加网络请求超时处理
+const fetchWithTimeout = async (url: string, timeoutMs: number) => {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), timeoutMs))
+  ]);
+};
+
+// 修改fetchWithCache使用带超时的fetch
+const response = await fetchWithTimeout(url, 10000); // 设置10秒超时

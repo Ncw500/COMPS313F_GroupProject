@@ -1,0 +1,5 @@
+// 添加加载状态优化：先显示基础站点数据，异步加载路线信息
+// 现有代码已实现此逻辑（设置基本站点数据后异步加载路线数据）
+// 确保UI在获取基础数据后立即渲染
+setNearbyStops(stopsWithDistance); // 先显示基础数据
+loadRouteData(stopsWithDistance, allRouteStops); // 后台加载路线数据

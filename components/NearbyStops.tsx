@@ -1,3 +1,5 @@
+import { cache } from '@/utils/api';
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
@@ -76,26 +78,23 @@ const NearbyStops = () => {
 
       console.log('Step 1: Start getting current position');
       
-      console.log(`❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹Step 1: Getting current position took`);
+      // console.log(`❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹❤️‍🩹Step 1: Getting current position took`);
       const positionStartTime = Date.now();
       const userLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: 5000, // 5 seconds
       });
-      console.log(`💝💝💝💝💝💝💝💝💝💝Step 1: Getting current position took ${Date.now() - positionStartTime} ms`);
+      // console.log(`💝💝💝💝💝💝💝💝💝💝Step 1: Getting current position took ${Date.now() - positionStartTime} ms`);
       console.log(`Step 1: Current position coordinates: latitude=${userLocation.coords.latitude.toFixed(6)}, longitude=${userLocation.coords.longitude.toFixed(6)}`);
       setLocation(userLocation);
 
-      // 获取所有站点和路线数据
-      console.log('Step 2: Start fetching stops and route stops');
-      const fetchStartTime = Date.now();
+      // 获取所有站点和路线数据时优先使用缓存
       const [allStops, allRouteStops] = await Promise.all([
-        // 调整重试策略：减少重试次数和延迟间隔
-        retryableFetch(fetchAllStops, 2, 1000), // 原参数：3次重试，2000ms间隔
-        retryableFetch(fetchAllRouteStops, 2, 1000)
+        forceRefresh ? fetchAllStops() : getStopsFromCacheOrFetch(), // 添加缓存逻辑
+        forceRefresh ? fetchAllRouteStops() : getRouteStopsFromCacheOrFetch()
       ]) as [StopInfo[], RouteStop[]];
 
-      console.log(`Step 2: Total fetch took ${Date.now() - fetchStartTime} ms`);
+      // console.log(`Step 2: Total fetch took ${Date.now() - fetchStartTime} ms`);
 
       // 计算距离并过滤附近站点
       console.log('Step 3: Start processing stops data');
@@ -658,3 +657,19 @@ const retryableFetch = async (func: Function, retries = 3, delay = 1000) => {
   }
   throw new Error('Retry failed');
 };
+
+async function getStopsFromCacheOrFetch() {
+  const cachedData = cache['all_stops_cache_key'];
+  if (cachedData && Date.now() - cachedData.timestamp < 20 * 60 * 1000) {
+    return cachedData.data;
+  }
+  return await fetchAllStops();
+}
+
+async function getRouteStopsFromCacheOrFetch() {
+  const cachedData = cache['all_route_stops'];
+  if (cachedData && Date.now() - cachedData.timestamp < 20 * 60 * 1000) {
+    return cachedData.data;
+  }
+  return await fetchAllRouteStops();
+}
