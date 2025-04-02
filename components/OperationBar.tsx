@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { useTheme } from '@/context/ThemeContext';
@@ -29,24 +28,20 @@ interface BusStop {
 
 // 在组件中使用routeStops数据
 const OperationBar = ({ route, routeId, routeBound, serviceType, routeStops }: OperationBarProps) => {
-    const router = useRouter(); // 初始化路由对象
-
-    const toggleRouteBound = () => {
-        if (!routeId || !routeBound || !serviceType) return;
-
-        // 计算相反方向
-        const oppositeBound = routeBound === 'O' ? 'I' : 'O';
-        const newRouteId = `${routeId}_${oppositeBound}_${serviceType}`;
-        
-        // 执行路由跳转
-        router.push(`/(Routes)/${newRouteId}`);
-    };
+    //   console.log("🚀 ~ OperationBar ~ routeStops:", routeStops)
+    // 可以在此处访问routeStops数据
+    //   console.log("Received route stops:", routeStops);
 
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
     const { t } = useTranslation();
 
-    // console.log("🚀 ~ OperationBar ~ routeId:", route)
+    console.log("🚀 ~ OperationBar ~ routeId:", route)
+
+    const toggleRouteBound = () => {
+        // Handle route bound toggle
+        console.log("Route bound toggled");
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.thirds, borderColor: colors.border }]}>
