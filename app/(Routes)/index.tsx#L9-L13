@@ -1,0 +1,4 @@
+// 在现有useEffect中添加参数依赖
+useEffect(() => {
+  fetchRoutes();
+}, [routeId]); // 添加路由参数依赖

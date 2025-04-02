@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { useTheme } from '@/context/ThemeContext';
@@ -28,21 +29,31 @@ interface BusStop {
 
 // 在组件中使用routeStops数据
 const OperationBar = ({ route, routeId, routeBound, serviceType, routeStops }: OperationBarProps) => {
-    //   console.log("🚀 ~ OperationBar ~ routeStops:", routeStops)
-    // 可以在此处访问routeStops数据
-    //   console.log("Received route stops:", routeStops);
+    const router = useRouter(); // 初始化路由对象
+
+    const toggleRouteBound = () => {
+        if (!routeId || !routeBound || !serviceType) return;
+
+        // 计算相反方向
+        const oppositeBound = routeBound === 'O' ? 'I' : 'O';
+        const newRouteId = `${routeId}_${oppositeBound}_${serviceType}`;
+        
+        // 执行路由跳转
+        router.push(`/(Routes)/${newRouteId}`);
+    };
 
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
     const { t } = useTranslation();
 
-    console.log("🚀 ~ OperationBar ~ routeId:", route)
+    // console.log("🚀 ~ OperationBar ~ routeId:", route)
 
     return (
         <View style={[styles.container, { backgroundColor: colors.thirds, borderColor: colors.border }]}>
             <View style={styles.contentContainer}>
                 <View>
-                    <TouchableOpacity style={[styles.button, { backgroundColor: colors.card }]} >
+                    <TouchableOpacity style={[styles.button, { backgroundColor: colors.card }]} 
+                        onPress={toggleRouteBound}>
                         <Ionicons name="swap-horizontal-outline" size={16} color={colors.text} />
                         <Text style={[styles.buttonText, { color: colors.text }]}> {t('operationBar.oppisiteLine')}</Text>
                     </TouchableOpacity>
