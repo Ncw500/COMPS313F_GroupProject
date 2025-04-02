@@ -22,7 +22,7 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
  3. If you use can't not access the app on your phone you can use this command terminal(administrator)
    ```bash
-   setx /M REACT_NATIVE_PACKAGER_HOSTNAME {Your IP address}
+    setx /M REACT_NATIVE_PACKAGER_HOSTNAME {Your IP address}
 
    ```
 In the output, you'll find options to open the app in a
