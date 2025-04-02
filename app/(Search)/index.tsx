@@ -62,7 +62,7 @@ const SearchPage = () => {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.card }]}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
@@ -173,6 +173,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     borderBottomWidth: 1,
+    height: 90
   },
   headerTop: {
     flexDirection: 'row',

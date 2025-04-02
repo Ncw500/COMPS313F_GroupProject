@@ -14,8 +14,8 @@ export default function HomePage() {
   const { t } = useTranslation();
   
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.card }]}>
+      <View style={[styles.container, { backgroundColor: colors.card }]}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerContent}>
             <View>
@@ -44,6 +44,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     borderBottomWidth: 1,
+    height: 90
   },
   headerContent: {
     flexDirection: 'row',

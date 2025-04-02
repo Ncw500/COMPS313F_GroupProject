@@ -408,7 +408,7 @@ const NearbyStops = () => {
           />
         }
         ListHeaderComponent={
-          <View style={[styles.header, { backgroundColor: colors.card }]}>
+          <View style={[styles.header, { backgroundColor: colors.background }]}>
             <Text style={[styles.title, { color: colors.text }]}>{t('home.nearbyRoutes')}</Text>
             <Text style={[styles.subtitle, { color: colors.subText }]}>
               {t('routes.nearbyStopsFound', { count: nearbyStops.length, distance: RADIUS_KM })}

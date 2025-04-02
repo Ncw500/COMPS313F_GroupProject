@@ -161,6 +161,32 @@ export const fetchRouteStops = async (
   }
 };
 
+export const fetchRouteByIdAndBound = async (
+  routeId: string,
+  bound: string,
+  serviceType: string
+): Promise<Route> => {
+  const boundFull = bound === 'O' ? 'outbound' : 'inbound';
+  // console.log("🚀 ~ serviceType:", serviceType)
+  // console.log("🚀 ~ bound:", bound)
+  // console.log("🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀 ~ routeId:", routeId)
+  // console.log("🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀 ~ url:", `${API_BASE_URL}/route/${routeId}/${boundFull}/${serviceType}`)
+  const startTime = Date.now();
+  try {
+    const result = await fetchWithCache(
+      `${API_BASE_URL}/route/${routeId}/${boundFull}/${serviceType}`,
+      `route_${routeId}_${boundFull}_${serviceType}`,
+      5,
+      20 * 60 * 1000 // 缓存时间延长至20分钟
+    );
+    console.log(`fetchRouteByIdAndBound completed in ${Date.now() - startTime}ms`);
+    return result;
+  } catch (error) {
+    console.error(`fetchRouteByIdAndBound failed after ${Date.now() - startTime}ms`, error);
+    throw error;
+  }
+};
+
 /**
  * Calculate distance between two coordinates in meters using Haversine formula
  */

@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
 import { useTranslation } from '@/utils/i18n';
+import OperationBar from '@/components/OperationBar';
+import { fetchRouteByIdAndBound } from '@/utils/api';
+import { Route } from '@/types/Interfaces';
 
 interface StopLocation {
     stopId: string;
@@ -15,29 +18,40 @@ interface StopLocation {
     seq: number;
 }
 
+interface BusStop {
+    stop: string;
+    name_en: string;
+    name_tc: string;
+    name_sc: string;
+    lat: string;
+    long: string;
+    seq?: number; // Optional sequence number for ordered stops
+  }
+
 const RouteDetailPage = () => {
     const params = useLocalSearchParams();
-    const { 
-      id, 
-      stopId, 
-      stopLat, 
-      stopLng, 
-      stopName, 
-      stopSeq 
+    const {
+        id,
+        stopId,
+        stopLat,
+        stopLng,
+        stopName,
+        stopSeq
     } = params;
-    
+
     const mapRef = useRef(null);
     const [selectedStop, setSelectedStop] = useState<StopLocation | null>(null);
     const { isDark } = useTheme();
     const colors = isDark ? Colors.dark : Colors.light;
     const { t } = useTranslation();
-    
+    const [route, setRoute] = useState<Route | null>(null);
+
     // Parse the route ID format (e.g., "1_O_1" to separate components)
     const splitId = (id: string) => {
         const [routeId, routeBound, routeServiceType] = id.split('_');
         return { routeId, routeBound, routeServiceType };
     };
-    
+
     const { routeId, routeBound, routeServiceType } = id ? splitId(id as string) : { routeId: undefined, routeBound: undefined, routeServiceType: undefined };
 
     // Handle when a stop is selected from the ETA list
@@ -55,31 +69,55 @@ const RouteDetailPage = () => {
                 stopName: stopName as string,
                 seq: parseInt(stopSeq as string) || 1
             };
-            
+
             // Set a small delay to ensure the map is fully loaded
             const timer = setTimeout(() => {
                 setSelectedStop(stopLocation);
             }, 1000);
-            
+
             return () => clearTimeout(timer);
         }
+        console.log("axxxxxxxxxx"+routeId)
     }, [stopId, stopLat, stopLng, stopName, stopSeq]);
+
+    // 在父组件中添加routeStops状态
+    const [routeStops, setRouteStops] = useState<BusStop[]>([]);
+
+    useEffect(() => {
+            const fetchData = async () => {
+                const routes = await fetchRouteByIdAndBound(routeId as string, routeBound as string, routeServiceType as string);
+                setRoute(routes);
+            };
+            fetchData();
+        
+        }, [routeId, routeBound, routeServiceType]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
             <View style={styles.mapViewContainer}>
-                <MapComponent 
+                <MapComponent
                     ref={mapRef}
-                    routeId={routeId} 
-                    routeBound={routeBound} 
+                    routeId={routeId}
+                    routeBound={routeBound}
                     serviceType={routeServiceType}
                     selectedStop={selectedStop}
+                    // 新增回调传递
+                    onRouteStopsChange={setRouteStops}
+                />
+            </View>
+            <View style={styles.operationBarContainer} >
+                <OperationBar 
+                  route={route}
+                  routeId={routeId}
+                  routeBound={routeBound}
+                  serviceType={routeServiceType}
+                  routeStops={routeStops}
                 />
             </View>
             <View style={styles.routeETAListContainer}>
-                <RouteETAList 
-                    id={id as string} 
+                <RouteETAList
+                    id={id as string}
                     onStopSelect={handleStopSelect}
                     initialStopId={stopId as string}
                 />
@@ -95,13 +133,14 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     mapViewContainer: {
-        height: "55%",
+        height: "50%",
+    },
+    operationBarContainer: {
+        height: "11%",
     },
     routeETAListContainer: {
-        height: "45%",
-        paddingTop: 10,
-        borderTopWidth: 2,
+        height: "39%",
+        marginTop: 10,
         borderColor: "#bdbbb5",
-        
     }
-});
+})

@@ -274,7 +274,7 @@ const translations = {
     },
     expired: {
       english: 'Expired',
-      chinese: '已過期',
+      chinese: '已開出',
     },
     arriving: {
       english: 'Arriving',
@@ -306,6 +306,30 @@ const translations = {
       english: 'Loading route line...',
       chinese: '正在載入路線線條...',
     },
+  },
+  operationBar: {
+    currentRouteInfo: {
+      english: 'Route Info',
+      chinese: '當前路線信息',
+    },
+    stop: {
+      english: 'Stops',
+      chinese: '站',
+    },
+    oppisiteLine: {
+      english: 'Opp Line',
+      chinese: '對面線',
+    },
+    to: {
+      english: 'To',
+      chinese: '往',
+    },
+    routesDest: {
+      english: '{route}.dest_en',
+      chinese: '{route}.dest_tc',
+    
+  
+    }
   }
   // 可以根據需要添加更多類別
 };

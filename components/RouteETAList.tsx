@@ -264,7 +264,7 @@ const RouteETAList = ({ id, onStopSelect, initialStopId }: RouteETAListProps) =>
                                 <Text style={[styles.routeTitle, { color: colors.text }]}>{t('routeETA.itemStopName', { stopName })}</Text>
                             </View>
                         </View>
-                        {!isExpanded ? (<Ionicons name="chevron-down-outline" size={22} color={colors.text} />) : <Ionicons name="chevron-up-outline" size={22} />}
+                        {!isExpanded ? (<Ionicons name="chevron-down-outline" size={22} color={colors.text} />) : <Ionicons name="chevron-up-outline" size={22} color={colors.text} />}
                     </TouchableOpacity>
                     {isExpanded && (
                         <View >
@@ -410,7 +410,7 @@ export default RouteETAList;
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-
+        marginHorizontal: 5,
     },
     routeTitleRow: {
         flexDirection: 'row',
@@ -460,8 +460,8 @@ const styles = StyleSheet.create({
     },
     etaEndItem: {
         marginLeft: 15,
-        textAlign: 'center',
         paddingHorizontal: 10,
+        maxWidth: "60%",
     },
 
     numberText: {

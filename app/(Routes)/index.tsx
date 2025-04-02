@@ -54,9 +54,9 @@ export default function AllRoutesScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.card }]}>
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.card}]}>
           <View style={styles.headerContent}>
             <View >
               <Text style={[styles.title, { color: colors.text }]}>{t('routes.title')}</Text>
@@ -66,7 +66,7 @@ export default function AllRoutesScreen() {
           </View>
         </View>
 
-        <View style={{ marginTop: 5, flex: 1 }}>
+        <View style={{ marginTop: 5 }}>
           {loading && !refreshing ? (
             <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
               <ActivityIndicator size="large" color={colors.primary} />
@@ -105,6 +105,7 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     borderBottomWidth: 1,
+    height: 90
   },
   headerContent: {
     flexDirection: 'row',

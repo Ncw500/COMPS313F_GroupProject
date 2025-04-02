@@ -22,6 +22,8 @@ interface MapComponentProps {
   routeBound?: string;
   serviceType?: string;
   selectedStop?: StopLocation | null;
+  // 新增 routeStops变化回调
+  onRouteStopsChange?: (stops: BusStop[]) => void;
 }
 
 interface BusStop {
@@ -233,7 +235,7 @@ const darkMapStyle: MapStyleElement[] = [
   }
 ];
 
-const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedStop }: MapComponentProps, ref) => {
+const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedStop, onRouteStopsChange }: MapComponentProps, ref) => {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [routeStops, setRouteStops] = useState<BusStop[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -369,6 +371,9 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
       const validStops = stops.filter(stop => stop !== null) as BusStop[];
       validStops.sort((a, b) => (a.seq || 0) - (b.seq || 0));
       setRouteStops(validStops);
+      if (onRouteStopsChange) { 
+        onRouteStopsChange(validStops);
+      }
 
       if (validStops.length > 1) {
         fetchRouteDirections(validStops);
@@ -675,7 +680,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
         showsUserLocation={true}
         showsMyLocationButton={true}
         showsTraffic={false}
-        customMapStyle={isDark ? darkMapStyle : []}
+       
         onMapReady={() => {
           console.log('Map is ready');
           setIsLoading(false);
@@ -731,17 +736,7 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
         })}
       </MapView>
 
-      {!isLoading && !isLoadingPath && routePaths.length > 0 && (
-        <View style={[styles.routeInfoBanner, {
-          backgroundColor: colors.banner.info.background
-        }]}>
-          <Text style={[styles.routeInfoText, {
-            color: colors.banner.info.text
-          }]}>
-            {routeId} - {routeStops.length} stops
-          </Text>
-        </View>
-      )}
+  
     </View>
   );
 });
