@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
-  ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { StopInfo, RouteStop, Route } from '@/types/Interfaces';
@@ -20,17 +19,28 @@ import { useTheme } from '@/context/ThemeContext';
 import { Colors } from '@/styles/theme';
 import { useTranslation } from '@/utils/i18n';
 
-interface NearbyStop extends StopInfo {
-  distance: number;
+interface StopGroup {
+  name: string;        // The display name of the stop group
+  stops: StopInfo[];   // All stops in this group
+  primaryStop: StopInfo; // The closest stop (used for display)
+  distance: number;    // Distance to the closest stop
+}
+
+interface NearbyStop {
+  stopGroup: StopGroup;
   routes?: Array<{
     routeId: string;
     bound: string;
     serviceType: string;
-    destination: string;
+    destination_en: string;  // Changed from 'destination' to 'destination_en'
+    destination_tc: string;  // Added Chinese destination
+    origin_en?: string;      // Add origin English name
+    origin_tc?: string;      // Add origin Chinese name
+    specificStopId: string;
+    time?: string;
+    eta?: string;
   }>;
 }
-
-
 
 const RADIUS_KM = 0.5; // 500m radius to search for stops
 
@@ -99,33 +109,67 @@ const NearbyStops = () => {
       // 计算距离并过滤附近站点
       console.log('Step 3: Start processing stops data');
       const processStartTime = Date.now();
-      const stopsWithDistance = allStops
-        .map((stop: StopInfo) => ({ // 明确指定 stop 类型
-          ...stop,
-          distance: calculateDistance(
-            userLocation.coords.latitude,
-            userLocation.coords.longitude,
-            parseFloat(stop.lat),
-            parseFloat(stop.long)
-          ),
-        }))
-        .filter((stop) => stop.distance <= RADIUS_KM * 1000)
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 30);
-      console.log(`Step 3: Processing took ${Date.now() - processStartTime} ms`);
 
-      // 设置基本站点数据
-      setNearbyStops(stopsWithDistance);
+      // Add distance information to each stop
+      const stopsWithDistance = allStops.map((stop) => ({
+        ...stop,
+        distance: calculateDistance(
+          userLocation.coords.latitude,
+          userLocation.coords.longitude,
+          parseFloat(stop.lat),
+          parseFloat(stop.long)
+        ),
+      }))
+      .filter((stop) => stop.distance <= RADIUS_KM * 1000);
+
+      // Group stops by name
+      const nameGroups: Record<string, StopInfo[]> = {};
+      stopsWithDistance.forEach(stop => {
+        // Use both English and Chinese names as the key to ensure proper matching
+        const nameKey = `${stop.name_en.toLowerCase().trim()}_${stop.name_tc.toLowerCase().trim()}`;
+        
+        if (!nameGroups[nameKey]) {
+          nameGroups[nameKey] = [];
+        }
+        nameGroups[nameKey].push(stop);
+      });
+
+      // Create stop groups
+      const stopGroups: StopGroup[] = Object.values(nameGroups).map(stops => {
+        // Sort stops by distance to find the closest one
+        stops.sort((a, b) => a.distance - b.distance);
+        const primaryStop = stops[0];
+        
+        return {
+          name: primaryStop.name_en,
+          stops: stops,
+          primaryStop: primaryStop,
+          distance: primaryStop.distance
+        };
+      });
+
+      // Sort groups by distance and limit to 30
+      stopGroups.sort((a, b) => a.distance - b.distance);
+      const limitedGroups = stopGroups.slice(0, 30);
+      
+      // Create initial nearby stops array (without routes yet)
+      const initialNearbyStops = limitedGroups.map(group => ({
+        stopGroup: group,
+        routes: []
+      }));
+
+      console.log(`Step 3: Processing took ${Date.now() - processStartTime} ms`);
+      
+      setNearbyStops(initialNearbyStops);
       setLoading(false);
 
-      // 如果没有找到站点，提前返回
-      if (stopsWithDistance.length === 0) {
+      if (initialNearbyStops.length === 0) {
         setRefreshing(false);
         return;
       }
 
-      // 加载路线数据
-      loadRouteData(stopsWithDistance, allRouteStops);
+      // Load route data for the grouped stops
+      loadRouteDataForGroups(limitedGroups, allRouteStops);
 
     } catch (error) {
       console.error('Error loading nearby stops:', error);
@@ -140,64 +184,149 @@ const NearbyStops = () => {
     }
   };
 
-  // Separate function to load route data with retry logic
-  const loadRouteData = async (stopsWithDistance: NearbyStop[], allRouteStops: RouteStop[]) => {
-    const startTime = Date.now();
+  // Fetch ETA data for all stops in a group
+  const fetchETAForStopGroup = async (stopGroup: StopGroup): Promise<Record<string, {eta: string, stopId: string}>> => {
     try {
-      // Load route data in a separate try/catch to handle failure gracefully
-      const startTime = Date.now();
-      const allRoutes = await fetchAllRoutes().then(result => {
-        console.log("fetchAllRoutes completed in", Date.now() - startTime, "ms with", result.length, "routes");
-        return result;
+      const etaMaps = await Promise.all(stopGroup.stops.map(async (stop) => {
+        try {
+          const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop.stop}`);
+          const data = await response.json();
+          
+          if (!data?.data || !Array.isArray(data.data)) {
+            return { stopId: stop.stop, etaEntries: [] };
+          }
+          
+          return { 
+            stopId: stop.stop, 
+            etaEntries: data.data 
+          };
+        } catch (err) {
+          console.error(`Error fetching ETA for stop ${stop.stop}:`, err);
+          return { stopId: stop.stop, etaEntries: [] };
+        }
+      }));
+      
+      // Combine and process all ETA data
+      const combinedEtaMap: Record<string, {eta: string, stopId: string}> = {};
+      
+      etaMaps.forEach(({ stopId, etaEntries }) => {
+        etaEntries.forEach((eta: any) => {
+          if (!eta.eta) return;
+          
+          const routeKey = `${eta.route}_${eta.dir}_${eta.service_type}`;
+          const etaTime = new Date(eta.eta);
+          const now = new Date();
+          const minutesRemaining = Math.round((etaTime.getTime() - now.getTime()) / (1000 * 60));
+          
+          // Only add if:
+          // 1. We don't already have an ETA for this route, or
+          // 2. This ETA is sooner than the one we have
+          if (minutesRemaining >= 0 && 
+              (!combinedEtaMap[routeKey] || 
+               combinedEtaMap[routeKey].eta === t('routeETA.arriving') ||
+               (minutesRemaining === 0 && combinedEtaMap[routeKey].eta !== t('routeETA.arriving')) || 
+               (minutesRemaining > 0 && parseInt(combinedEtaMap[routeKey].eta) > minutesRemaining))
+          ) {
+            combinedEtaMap[routeKey] = {
+              eta: minutesRemaining === 0 ? t('routeETA.arriving') : `${minutesRemaining} min`,
+              stopId: stopId
+            };
+          }
+        });
       });
+      
+      return combinedEtaMap;
+    } catch (error) {
+      console.error('Error fetching ETAs for stop group:', error);
+      return {};
+    }
+  };
 
+  // Load route data for grouped stops
+  const loadRouteDataForGroups = async (stopGroups: StopGroup[], allRouteStops: RouteStop[]) => {
+    setIsLoadingRoutes(true);
+    const startTime = Date.now();
+    
+    try {
+      const allRoutes = await fetchAllRoutes();
+      console.log("fetchAllRoutes completed in", Date.now() - startTime, "ms with", allRoutes.length, "routes");
+      
       try {
-        // Find which routes pass through each nearby stop
-        const nearbyWithRoutes = await Promise.all(
-          stopsWithDistance.map(async (stop) => {
-            // Find all route-stop entries for this stop
-            const routesForStop = allRouteStops.filter(
-              routeStop => routeStop.stop === stop.stop
+        // Process each stop group
+        const stopsWithRoutes = await Promise.all(
+          stopGroups.map(async (group) => {
+            // Get all stop IDs in this group
+            const stopIds = group.stops.map(stop => stop.stop);
+            
+            // Find all route-stops for this group
+            const routeStopsForGroup = allRouteStops.filter(rs => 
+              stopIds.includes(rs.stop)
             );
-
-            // Match with route details to get destinations
-            const routeDetails = routesForStop.map(routeStop => {
+            
+            // Get unique route identifiers from the route-stops
+            const uniqueRouteKeys = new Set(
+              routeStopsForGroup.map(rs => `${rs.route}_${rs.bound}_${rs.service_type}`)
+            );
+            
+            // Create a map of route key -> stop ID
+            const routeStopMap: Record<string, string> = {};
+            routeStopsForGroup.forEach(rs => {
+              const key = `${rs.route}_${rs.bound}_${rs.service_type}`;
+              routeStopMap[key] = rs.stop;
+            });
+            
+            // Fetch ETA data for all stops in this group
+            const etaMap = await fetchETAForStopGroup(group);
+            
+            // Create route objects with correct stop IDs
+            const routes = Array.from(uniqueRouteKeys).map(key => {
+              const [routeId, bound, serviceType] = key.split('_');
+              
+              // Find matching route for destination info
               const matchingRoute = allRoutes.find(
                 route =>
-                  route.route === routeStop.route &&
-                  route.bound === routeStop.bound &&
-                  route.service_type === routeStop.service_type
+                  route.route === routeId &&
+                  route.bound === bound &&
+                  route.service_type === serviceType
               );
-
+              
+              // Use ETA if available, otherwise use default values
+              const etaInfo = etaMap[key];
+              
               return {
-                routeId: routeStop.route,
-                bound: routeStop.bound,
-                serviceType: routeStop.service_type,
-                destination: matchingRoute ? matchingRoute.dest_en : 'Unknown'
+                routeId,
+                bound,
+                serviceType,
+                destination_en: matchingRoute ? matchingRoute.dest_en : 'Unknown',
+                destination_tc: matchingRoute ? matchingRoute.dest_tc : '未知',
+                origin_en: matchingRoute ? matchingRoute.orig_en : 'Unknown',
+                origin_tc: matchingRoute ? matchingRoute.orig_tc : '未知',
+                specificStopId: etaInfo?.stopId || routeStopMap[key],
+                eta: etaInfo?.eta || ''
               };
             });
-
-            // Sort routes
-            routeDetails.sort((a, b) => {
+            
+            // Sort routes numerically if possible
+            routes.sort((a, b) => {
               const numA = parseInt(a.routeId);
               const numB = parseInt(b.routeId);
-
+              
               if (!isNaN(numA) && !isNaN(numB)) {
                 return numA - numB;
               }
               return a.routeId.localeCompare(b.routeId);
             });
-
+            
             return {
-              ...stop,
-              routes: routeDetails
+              stopGroup: group,
+              routes
             };
           })
         );
-
-        setNearbyStops(nearbyWithRoutes);
+        
+        setNearbyStops(stopsWithRoutes);
         setRouteLoadingError(null);
-
+        
       } catch (routeStopError) {
         console.error('Error loading route-stops:', routeStopError);
 
@@ -208,7 +337,7 @@ const NearbyStops = () => {
           // Wait and retry after 10 seconds
           setTimeout(() => {
             setRouteLoadingError(t('nearbyStops.setRouteLoadingErrorRetry', { loadingAttempts: loadingAttempts.current }));
-            loadRouteData(stopsWithDistance, allRouteStops);
+            loadRouteDataForGroups(stopGroups, allRouteStops);
           }, 10000);
           return;
         }
@@ -220,7 +349,7 @@ const NearbyStops = () => {
       setRouteLoadingError(t('nearbyStops.setRouteLoadingErrorFetchError'));
     } finally {
       const duration = Date.now() - startTime;
-      console.log('loadRouteData executed in', duration, 'ms');
+      console.log('loadRouteDataForGroups executed in', duration, 'ms');
       setIsLoadingRoutes(false);
       setRefreshing(false);
     }
@@ -236,19 +365,22 @@ const NearbyStops = () => {
     loadNearbyStops(true);
   };
 
-  // Navigate to specific route with stop information
-  const navigateToRoute = (routeId: string, bound: string, serviceType: string, stop: NearbyStop) => {
+  // Navigate to specific route with the correct stop information
+  const navigateToRoute = (routeId: string, bound: string, serviceType: string, stopGroup: StopGroup, specificStopId: string) => {
     const startTime = Date.now();
     try {
+      // Find the specific stop with the matching ID
+      const specificStop = stopGroup.stops.find(stop => stop.stop === specificStopId) || stopGroup.primaryStop;
+      
       router.push({
         pathname: "/(Home)/[id]",
         params: {
           id: `${routeId}_${bound}_${serviceType}`,
-          stopId: stop.stop,
-          stopLat: stop.lat,
-          stopLng: stop.long,
-          stopName: stop.name_en,
-          stopSeq: "1" // Default sequence since we don't know the exact sequence here
+          stopId: specificStopId,
+          stopLat: specificStop.lat,
+          stopLng: specificStop.long,
+          stopName: specificStop.name_en,
+          stopSeq: "1" // Default sequence
         }
       });
     } finally {
@@ -257,42 +389,69 @@ const NearbyStops = () => {
     }
   };
 
-  // Render route chip
-  const RouteChip = ({
-    routeId,
-    bound,
-    serviceType,
-    destination,
-    stop
+  // Replace the RoutesList component to use the stop group and specific stop ID
+  const RoutesList = ({
+    routes,
+    stopGroup,
   }: {
-    routeId: string;
-    bound: string;
-    serviceType: string;
-    destination: string;
-    stop: NearbyStop;
+    routes: Array<{
+      routeId: string;
+      bound: string;
+      serviceType: string;
+      destination_en: string;
+      destination_tc: string;
+      origin_en?: string;
+      origin_tc?: string;
+      specificStopId: string;
+      time?: string;
+      eta?: string;
+    }>;
+    stopGroup: StopGroup;
   }) => {
-    const startTime = Date.now();
-    const component = (
-      <TouchableOpacity
-        style={[styles.routeChip, {
-          backgroundColor: colors.cardButton,
-        }]}
-        onPress={() => navigateToRoute(routeId, bound, serviceType, stop)}
-      >
-        <Text style={[styles.routeChipNumber, { color: colors.primary }]}>{routeId} / {bound} / {serviceType}</Text>
-        <Text style={[styles.routeChipDestination, { color: colors.subText }]} numberOfLines={1}>
-          {destination}
-        </Text>
-      </TouchableOpacity>
+    return (
+      <View style={styles.routeListContainer}>
+        <FlatList
+          data={routes}
+          keyExtractor={(item, index) => `${item.routeId}_${item.bound}_${item.serviceType}_${index}`}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.routeListItem, { backgroundColor: colors.cardButton }]}
+              onPress={() => navigateToRoute(
+                item.routeId, 
+                item.bound, 
+                item.serviceType, 
+                stopGroup,
+                item.specificStopId
+              )}
+            >
+              <View style={styles.routeListItemContent}>
+                <Text style={[styles.routeNumber, { color: colors.primary }]}>{item.routeId}</Text>
+                <View style={styles.routeDetailContainer}>
+                  <Text style={[styles.routeDestination, { color: colors.text }]} numberOfLines={1}>
+                    {t('search.destinationRouteName', { route: {
+                      dest_en: item.destination_en,
+                      dest_tc: item.destination_tc
+                    }})}
+                  </Text>
+                  {item.eta ? (
+                    <Text style={[styles.routeTime, { color: colors.primary }]}>
+                      {item.eta}
+                    </Text>
+                  ) : null}
+                </View>
+                <MaterialIcons name="arrow-forward" size={18} color={colors.primary} />
+              </View>
+            </TouchableOpacity>
+          )}
+          scrollEnabled={false}
+          contentContainerStyle={styles.routeListContentContainer}
+        />
+      </View>
     );
-
-    const duration = Date.now() - startTime;
-    return component;
   };
 
-  // Render each stop item - update to handle missing route data
+  // Update the renderStopItem to hide the stop group count
   const renderStopItem = ({ item }: { item: NearbyStop }) => {
-    const startTime = Date.now();
     return (
       <View style={[styles.stopItem, {
         backgroundColor: colors.card,
@@ -300,18 +459,21 @@ const NearbyStops = () => {
       }]}>
         <View style={styles.stopHeader}>
           <View style={styles.stopIconContainer}>
-            <Text style={[styles.stopName, { color: colors.text, marginBottom: 5 }]}>{t('nearbyStopsChips.stopNameMain', { stopName: item })}</Text>
-            <Text style={[styles.stopNameLocal, { color: colors.subText }]}>{t('nearbyStopsChips.stopNameSub', { stopName: item })}</Text>
+            <Text style={[styles.stopName, { color: colors.text, marginBottom: 5 }]}>
+              {item.stopGroup.primaryStop.name_en}
+            </Text>
+            <Text style={[styles.stopNameLocal, { color: colors.subText }]}>
+              {item.stopGroup.primaryStop.name_tc}
+            </Text>
           </View>
 
           <View style={[styles.distanceBadge, { backgroundColor: colors.primary }]}>
             <MaterialIcons name="near-me" size={14} color="#FFF" />
-            <Text style={styles.distanceText}>{formatDistance(item.distance)}</Text>
+            <Text style={styles.distanceText}>{formatDistance(item.stopGroup.distance)}</Text>
           </View>
         </View>
 
-
-        {isLoadingRoutes && !item.routes && (
+        {isLoadingRoutes && !item.routes?.length && (
           <View style={styles.routeLoadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={[styles.routeLoadingText, { color: colors.subText }]}>{t('nearbyStops.loadingInfo')}</Text>
@@ -321,22 +483,7 @@ const NearbyStops = () => {
         {item.routes && item.routes.length > 0 ? (
           <View style={styles.routesContainer}>
             <Text style={[styles.routesTitle, { color: colors.subText }]}>{t('nearbyStops.routePassingStops')}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.routesScrollContent}
-            >
-              {item.routes.map((route, index) => (
-                <RouteChip
-                  key={`${route.routeId}_${route.bound}_${route.serviceType}_${index}`}
-                  routeId={route.routeId}
-                  bound={route.bound}
-                  serviceType={route.serviceType}
-                  destination={route.destination}
-                  stop={item}
-                />
-              ))}
-            </ScrollView>
+            <RoutesList routes={item.routes} stopGroup={item.stopGroup} />
           </View>
         ) : (!isLoadingRoutes && (
           <Text style={[styles.noRoutesText, { color: colors.subText }]}>
@@ -398,7 +545,7 @@ const NearbyStops = () => {
       <FlatList
         data={nearbyStops}
         renderItem={renderStopItem}
-        keyExtractor={(item) => item.stop}
+        keyExtractor={(item, index) => `group-${index}-${item.stopGroup.primaryStop.stop}`}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -644,7 +791,68 @@ const styles = StyleSheet.create({
   },
   stopIconContainer: {
     maxWidth: '70%',
-  }
+  },
+  // Add styles for the dropdown
+  dropdownContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 8,
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 45,
+  },
+  // Remove dropdown styles and add list styles
+  routeListContainer: {
+    marginTop: 8,
+  },
+  routeListContentContainer: {
+    paddingBottom: 5,
+  },
+  routeListItem: {
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  routeListItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeNumber: {
+    fontWeight: '700',
+    fontSize: 16,
+    minWidth: 40,
+  },
+  routeDetailContainer: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+  routeDestination: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  routeTime: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  // Add styles for the stop count badge
+  stopCountBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  stopCountText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
 });
 
 const retryableFetch = async (func: Function, retries = 3, delay = 1000) => {

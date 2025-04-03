@@ -223,6 +223,14 @@ const translations = {
       english: 'Error setting API key. Please try again later.',
       chinese: '設置API密鑰時出錯。請稍後再試。',
     },
+    selectRoute: {
+      english: "Select a route",
+      chinese: "選擇路線"
+    },
+    multipleStops: {
+      english: "Multiple stops",
+      chinese: "多個站點"
+    },
   },
   nearbyStopsChips: {
     stopNameMain: {
@@ -397,4 +405,4 @@ export const getTranslation = (
   console.warn(`Translation for ${key} in ${language} not found`);
   return key;
 };
-  
+
