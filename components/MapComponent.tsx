@@ -735,7 +735,17 @@ const MapComponent = forwardRef(({ routeId, routeBound, serviceType, selectedSto
           );
         })}
       </MapView>
-
+      {!isLoading && !isLoadingPath && routePaths.length > 0 && (
+        <View style={[styles.routeInfoBanner, {
+          backgroundColor: colors.banner.info.background
+        }]}>
+          <Text style={[styles.routeInfoText, {
+            color: colors.banner.info.text
+          }]}>
+            {routeId} - {routeStops.length} stops
+          </Text>
+        </View>
+      )}
   
     </View>
   );

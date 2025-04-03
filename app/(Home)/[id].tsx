@@ -18,15 +18,15 @@ interface StopLocation {
     seq: number;
 }
 
-interface BusStop {
-    stop: string;
-    name_en: string;
-    name_tc: string;
-    name_sc: string;
-    lat: string;
-    long: string;
-    seq?: number; // Optional sequence number for ordered stops
-}
+// interface BusStop {
+//     stop: string;
+//     name_en: string;
+//     name_tc: string;
+//     name_sc: string;
+//     lat: string;
+//     long: string;
+//     seq?: number; // Optional sequence number for ordered stops
+// }
 
 
 
@@ -91,7 +91,7 @@ const RouteDetailPage = () => {
     
     }, [routeId, routeBound, routeServiceType]);
 
-    const [routeStops, setRouteStops] = useState<BusStop[]>([]);
+    // const [routeStops, setRouteStops] = useState<BusStop[]>([]);
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -101,7 +101,7 @@ const RouteDetailPage = () => {
                     routeId={routeId}
                     routeBound={routeBound}
                     serviceType={routeServiceType}
-                    onRouteStopsChange={setRouteStops}
+                    selectedStop={selectedStop}
                 />
             </View>
             <View style={styles.operationBarContainer} >
@@ -110,7 +110,7 @@ const RouteDetailPage = () => {
                     routeId={routeId}
                     routeBound={routeBound}
                     serviceType={routeServiceType}
-                    routeStops={routeStops}
+                    // routeStops={routeStops}
                 />
             </View>
             <View style={styles.routeETAListContainer}>
