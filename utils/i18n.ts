@@ -303,7 +303,15 @@ const translations = {
     itemRemark: {
       english: '{remark}.rmk_en',
       chinese: '{remark}.rmk_tc',
-    }
+    },
+    noETA: {
+      english: 'No arrival information',
+      chinese: '沒有到達資訊'
+    },
+    noRoutesWithETA: {
+      english: 'No routes with arrival information',
+      chinese: '沒有帶有到達時間的路線'
+    },
   },
   mapComponent: {
     loadingMap: {

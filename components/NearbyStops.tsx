@@ -26,16 +26,29 @@ interface StopGroup {
   distance: number;    // Distance to the closest stop
 }
 
+// Helper function to normalize stop names for better matching
+function normalizeStopName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')        // Normalize whitespace
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')  // Remove punctuation
+    .replace(/\bbus\s+stop\b/gi, '') // Remove "bus stop" text
+    .replace(/\bstation\b/gi, '')    // Remove "station" text
+    .replace(/\bstn\b/gi, '')        // Remove "stn" abbreviation
+    .replace(/\bterminus\b/gi, '');  // Remove "terminus" text
+}
+
 interface NearbyStop {
   stopGroup: StopGroup;
   routes?: Array<{
     routeId: string;
     bound: string;
     serviceType: string;
-    destination_en: string;  // Changed from 'destination' to 'destination_en'
-    destination_tc: string;  // Added Chinese destination
-    origin_en?: string;      // Add origin English name
-    origin_tc?: string;      // Add origin Chinese name
+    dest_en: string;     // English destination
+    dest_tc: string;     // Chinese destination
+    orig_en: string;     // English origin
+    orig_tc: string;     // Chinese origin
     specificStopId: string;
     time?: string;
     eta?: string;
@@ -184,12 +197,18 @@ const NearbyStops = () => {
     }
   };
 
-  // Fetch ETA data for all stops in a group
+  // Improved fetch ETA data function
   const fetchETAForStopGroup = async (stopGroup: StopGroup): Promise<Record<string, {eta: string, stopId: string}>> => {
     try {
-      const etaMaps = await Promise.all(stopGroup.stops.map(async (stop) => {
+      // Create an array to hold promises for each stop's ETA request
+      const etaPromises = stopGroup.stops.map(async (stop) => {
         try {
           const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/stop-eta/${stop.stop}`);
+          if (!response.ok) {
+            console.error(`ETA API returned status ${response.status} for stop ${stop.stop}`);
+            return { stopId: stop.stop, etaEntries: [] };
+          }
+          
           const data = await response.json();
           
           if (!data?.data || !Array.isArray(data.data)) {
@@ -204,7 +223,10 @@ const NearbyStops = () => {
           console.error(`Error fetching ETA for stop ${stop.stop}:`, err);
           return { stopId: stop.stop, etaEntries: [] };
         }
-      }));
+      });
+      
+      // Wait for all ETA requests to complete
+      const etaMaps = await Promise.all(etaPromises);
       
       // Combine and process all ETA data
       const combinedEtaMap: Record<string, {eta: string, stopId: string}> = {};
@@ -218,17 +240,22 @@ const NearbyStops = () => {
           const now = new Date();
           const minutesRemaining = Math.round((etaTime.getTime() - now.getTime()) / (1000 * 60));
           
-          // Only add if:
-          // 1. We don't already have an ETA for this route, or
-          // 2. This ETA is sooner than the one we have
-          if (minutesRemaining >= 0 && 
-              (!combinedEtaMap[routeKey] || 
-               combinedEtaMap[routeKey].eta === t('routeETA.arriving') ||
-               (minutesRemaining === 0 && combinedEtaMap[routeKey].eta !== t('routeETA.arriving')) || 
-               (minutesRemaining > 0 && parseInt(combinedEtaMap[routeKey].eta) > minutesRemaining))
-          ) {
+          // Only valid ETA times (not in the past)
+          if (minutesRemaining < 0) return;
+          
+          let etaText = minutesRemaining === 0 ? 
+            t('routeETA.arriving') : 
+            `${minutesRemaining} ${t('routeETA.min')}`;
+          
+          // Only add or replace if this ETA is sooner than what we already have
+          const shouldReplace = !combinedEtaMap[routeKey] || // No existing ETA
+            (combinedEtaMap[routeKey].eta === t('routeETA.arriving') ? false : // Current is "arriving" (can't get better)
+            (minutesRemaining === 0 || // New is "arriving" 
+             parseInt(combinedEtaMap[routeKey].eta) > minutesRemaining)); // New is sooner
+          
+          if (shouldReplace) {
             combinedEtaMap[routeKey] = {
-              eta: minutesRemaining === 0 ? t('routeETA.arriving') : `${minutesRemaining} min`,
+              eta: etaText,
               stopId: stopId
             };
           }
@@ -278,7 +305,7 @@ const NearbyStops = () => {
             // Fetch ETA data for all stops in this group
             const etaMap = await fetchETAForStopGroup(group);
             
-            // Create route objects with correct stop IDs
+            // Create route objects with correct stop IDs and bilingual data
             const routes = Array.from(uniqueRouteKeys).map(key => {
               const [routeId, bound, serviceType] = key.split('_');
               
@@ -297,10 +324,10 @@ const NearbyStops = () => {
                 routeId,
                 bound,
                 serviceType,
-                destination_en: matchingRoute ? matchingRoute.dest_en : 'Unknown',
-                destination_tc: matchingRoute ? matchingRoute.dest_tc : '未知',
-                origin_en: matchingRoute ? matchingRoute.orig_en : 'Unknown',
-                origin_tc: matchingRoute ? matchingRoute.orig_tc : '未知',
+                dest_en: matchingRoute ? matchingRoute.dest_en : 'Unknown',
+                dest_tc: matchingRoute ? matchingRoute.dest_tc : '未知',
+                orig_en: matchingRoute ? matchingRoute.orig_en : 'Unknown',
+                orig_tc: matchingRoute ? matchingRoute.orig_tc : '未知',
                 specificStopId: etaInfo?.stopId || routeStopMap[key],
                 eta: etaInfo?.eta || ''
               };
@@ -389,7 +416,7 @@ const NearbyStops = () => {
     }
   };
 
-  // Replace the RoutesList component to use the stop group and specific stop ID
+  // Update the RoutesList component to filter routes without ETA data
   const RoutesList = ({
     routes,
     stopGroup,
@@ -398,20 +425,33 @@ const NearbyStops = () => {
       routeId: string;
       bound: string;
       serviceType: string;
-      destination_en: string;
-      destination_tc: string;
-      origin_en?: string;
-      origin_tc?: string;
+      dest_en: string;
+      dest_tc: string;
+      orig_en: string;
+      orig_tc: string;
       specificStopId: string;
       time?: string;
       eta?: string;
     }>;
     stopGroup: StopGroup;
   }) => {
+    // Filter to only keep routes that have valid ETA data
+    const routesWithETA = routes.filter(route => route.eta && route.eta.trim() !== "");
+
+    if (routesWithETA.length === 0) {
+      return (
+        <View style={styles.noETAContainer}>
+          <Text style={[styles.noETAText, { color: colors.subText }]}>
+            {t('routeETA.noRoutesWithETA')}
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.routeListContainer}>
         <FlatList
-          data={routes}
+          data={routesWithETA}
           keyExtractor={(item, index) => `${item.routeId}_${item.bound}_${item.serviceType}_${index}`}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -429,15 +469,13 @@ const NearbyStops = () => {
                 <View style={styles.routeDetailContainer}>
                   <Text style={[styles.routeDestination, { color: colors.text }]} numberOfLines={1}>
                     {t('search.destinationRouteName', { route: {
-                      dest_en: item.destination_en,
-                      dest_tc: item.destination_tc
+                      dest_en: item.dest_en,
+                      dest_tc: item.dest_tc
                     }})}
                   </Text>
-                  {item.eta ? (
-                    <Text style={[styles.routeTime, { color: colors.primary }]}>
-                      {item.eta}
-                    </Text>
-                  ) : null}
+                  <Text style={[styles.routeTime, { color: colors.primary }]}>
+                    {item.eta}
+                  </Text>
                 </View>
                 <MaterialIcons name="arrow-forward" size={18} color={colors.primary} />
               </View>
@@ -852,6 +890,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  routeNoEta: {
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  noETAContainer: {
+    marginTop: 8,
+    padding: 10,
+    alignItems: 'center',
+  },
+  noETAText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: '#999',
   },
 });
 
